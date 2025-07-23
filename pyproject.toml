@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "tvara"
+version = "1.0"
+description = "A Python package for Tvara, a tool for automating workflows."
+authors = ["Ashish Lal <ashishlal2003@gmail.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+
+[tool.poetry.dev-dependencies]
+pytest = "^8.4.1"  # or any version compatible with your setup
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
