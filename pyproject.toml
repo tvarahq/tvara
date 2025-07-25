@@ -10,6 +10,7 @@ python = "^3.11"
 [tool.poetry.dev-dependencies]
 pytest = "^8.4.1"
 google-genai = "^1.27.0"
+tavily-python = "^0.7.10"
 
 [build-system]
 requires = ["poetry-core"]
