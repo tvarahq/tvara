@@ -1,7 +1,7 @@
 from typing import List
 
 def basic_prompt_template(name: str, description: str, **kwargs) -> str:
-    return f"You are {name}. {description}"
+    return f"You are {name}. {description}, You have access to {kwargs.get('tools', [])} and {kwargs.get('connectors', [])}."
 
 def tool_aware_template(name: str, description: str, tools: List[str], **kwargs) -> str:
     tool_list = ", ".join(tools) if tools else "no tools"
