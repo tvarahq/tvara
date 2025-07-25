@@ -1,47 +1,68 @@
 # Tvara
 ![Tvara](assets/Tvara_Stretched.png)
 
-Tvara is a platform designed to facilitate the development and deployment of AI agents. It provides a comprehensive framework for building, managing, and executing AI workflows.
+**Tvara** is an open-source platform for developing and deploying intelligent AI agents. It offers a modular, extensible architecture for integrating models, tools, and data connectors into a single agent-driven interface.
 
-## Features
-- **Agent Management**: Create and manage AI agents with ease.
-- **Workflow Orchestration**: Define complex workflows that involve multiple agents.
-- **Integration**: Seamlessly integrate with various data sources and APIs.
-- **Scalability**: Designed to handle large-scale AI applications.
-- **User-Friendly Interface**: Intuitive UI for managing agents and workflows.
-- **Extensibility**: Easily extend the platform with custom agents and workflows.
-- **Open Source**: Tvara is open source, allowing for community contributions and transparency.
-- **Documentation**: Comprehensive documentation to help you get started quickly.
+## ✨ Features
+- **Agent Framework**: Create, customize, and run intelligent agents using powerful language models.
+- **Prompt Engineering**: Use templated prompts with dynamic variables, tools, and connectors.
+- **Model Flexibility**: Support for pluggable models via a centralized model factory.
+- **Extensible Design**: Easily plug in new models, tools, or connectors.
+- **API Key Management**: Securely pass and manage credentials per agent.
+- **Open Source**: Transparent and extensible by design.
 
-## Installation
-To install Tvara, you can use pip:
+> **Coming Soon:** Workflow orchestration, multi-agent coordination, and a visual interface.
+
+---
+
+## 🚀 Installation
+
+Install Tvara using pip:
 
 ```bash
 pip install tvara
 ```
 
-## Usage
-Here's a simple example of how to create and run a workflow with Tvara:
+## Basic Usage
+Here's a simple example of how to define and run an agent:
+
 ```python
-from tvara.core.workflow import Workflow
 from tvara.core.agent import Agent
 
-# Create an agent
-agent = Agent(name="example_agent")
+agent = Agent(
+    name="TvaraScheduler",
+    model="gemini-pro",
+    api_key="your-api-key",
+    prompt_template_name="basic_prompt_template",
+    prompt_variables={
+        "name": "TvaraScheduler",
+        "description": "An assistant that helps schedule meetings intelligently."
+    },
+    tools=["calendar", "email_parser", "timezone_converter"],
+    connectors=["google_calendar", "outlook_api"]
+)
 
-# Define a simple workflow
-workflow = Workflow(steps=[
-    {"action": "input", "agent": agent},
-    {"action": "process", "agent": agent},
-    {"action": "output", "agent": agent}
-])
+response = agent.run("Schedule a call with John next week.")
+print(response)
+```
 
-# Run the workflow
-workflow.run()
+## Prompt Templates
+Tvara supports pre-defined prompt templates using a template registry:
+
+```python
+from tvara.utils.prompt_templates import template_registry
+
+print(template_registry.keys())  # e.g., ['basic_prompt_template', 'tool_aware_template']
+```
+
+To write your own custom prompt, you can make use of the special `prompt_template` called `custom_prompt_template`:
+
+```python
+template_registry['custom_prompt_template']
 ```
 
 ## Contributing
-We welcome contributions to Tvara! If you have ideas for new features, improvements, or bug fixes, please submit a pull request or open an issue.
+We welcome contributions to Tvara! Feel free to open issues, suggest features, or submit pull requests. Check the [CONTRIBUTING.md](CONTRIBUTING.md) (coming soon) for more details.
 
 ## License
 Tvara is licensed under the MIT License. See the [LICENSE](LICENSE) file for more details.
