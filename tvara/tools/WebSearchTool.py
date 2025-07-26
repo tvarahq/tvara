@@ -1,4 +1,4 @@
-from tvara.tools.BaseTool import BaseTool
+from .BaseTool import BaseTool
 from tavily import TavilyClient
 
 class WebSearchTool(BaseTool):
@@ -8,3 +8,4 @@ class WebSearchTool(BaseTool):
 
     def run(self, input_data: str) -> str:
         response = self.client.search(query=input_data)
+        return str(response)

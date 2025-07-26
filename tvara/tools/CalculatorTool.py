@@ -1,4 +1,4 @@
-from tvara.tools.BaseTool import BaseTool
+from .BaseTool import BaseTool
 
 class CalculatorTool(BaseTool):
     def __init__(self):

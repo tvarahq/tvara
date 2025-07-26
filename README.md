@@ -13,9 +13,16 @@
 
 > **Coming Soon:** Workflow orchestration, multi-agent coordination, and a visual interface.
 
----
+## Roadmap
+- Connectors for SQL databases, cloud storage, APIs, and more
+- Workflow orchestration with multi-step agent execution
+- Multi-agent coordination and role-based behavior
+- Visual interface for building and deploying agents
+- Improved observability and logs for debugging
 
-## 🚀 Installation
+Stay tuned for the official V1 launch, where these features will be included as part of our stable release.
+
+## Installation
 
 Install Tvara using pip:
 
@@ -23,27 +30,68 @@ Install Tvara using pip:
 pip install tvara
 ```
 
-## Basic Usage
-Here's a simple example of how to define and run an agent:
+## Usage Guide
+You can refer to the [examples](examples/) directory for more detailed usage patterns. Below is a simple example of creating and running an agent:
+
+```python
+from tvara.core import Agent
+
+agent = Agent(
+    name="MyAgent",
+    model="gemini-pro",
+    api_key="your-api-key",
+)
+
+response = agent.run("Hi, how are you?")
+print(response)
+```
+
+To create a more complex agent with specific tools and custom system prompts, you can do the following:
 
 ```python
 from tvara.core.agent import Agent
+from tvara.core.prompt import Prompt
+from tvara.tools import WebSearchTool, DateTool, CodeTool
 
-agent = Agent(
-    name="TvaraScheduler",
-    model="gemini-pro",
-    api_key="your-api-key",
-    prompt_template_name="basic_prompt_template",
-    prompt_variables={
-        "name": "TvaraScheduler",
-        "description": "An assistant that helps schedule meetings intelligently."
-    },
-    tools=["calendar", "email_parser", "timezone_converter"],
-    connectors=["google_calendar", "outlook_api"]
+my_anxious_prompt = Prompt(
+    raw_prompt="You are a very anxious AI assistant. You will answer the user's questions but in a very anxious manner. You will also use the tools provided to you.",
+    tools=[WebSearchTool(api_key=os.getenv("TAVILY_API_KEY")), DateTool(), CodeTool()],
 )
 
-response = agent.run("Schedule a call with John next week.")
+agent = Agent(
+    name="TvaraCoder",
+    model="gemini-pro",
+    api_key="your-api-key",
+    prompt=my_anxious_prompt,
+    prompt_variables={
+        "name": "TvaraCoder",
+        "description": "An assistant that helps with coding tasks."
+    },
+    tools=["code_executor", "debugger", "api_client"],
+)
+
+response = agent.run("List out all files in my current working directory using Python.")
 print(response)
+```
+
+To create your own tools, you can subclass `BaseTool` and implement the `run` method. For example:
+
+```python
+from tvara.tools import BaseTool
+class MyCustomTool(BaseTool):
+    def run(self, input_data):
+        # Implement your tool logic here
+        return f"Processed input: {input_data}"
+```
+
+For detailed documentation on how to create custom agents, tools, and prompts, we will be adding a comprehensive guide soon on our website.
+
+## Environment Variables
+To run Tvara, you may need to set up your environment variables for certain models and tools. Create a `.env` file in the root directory of your project with the following content:
+
+```plaintext
+MODEL_API_KEY
+TAVILY_API_KEY
 ```
 
 ## Prompt Templates
