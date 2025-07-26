@@ -1,5 +1,5 @@
 from typing import List, Optional
-from tvara.core.agent import Agent
+from .agent import Agent
 
 class Workflow:
     def __init__(self, name: str, description: Optional[str] = None, agents: Optional[List[Agent]] = None, architecture: Optional[str] = None):

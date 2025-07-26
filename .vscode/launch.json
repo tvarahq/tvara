@@ -1,0 +1,13 @@
+{
+  "version": "1.0",
+  "configurations": [
+    {
+      "name": "Single Agent Debugger",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/examples/single_agent.py",
+      "console": "integratedTerminal",
+      "python": "${workspaceFolder}/venv/Scripts/python.exe"
+    }
+  ]
+}
