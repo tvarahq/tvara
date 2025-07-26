@@ -1,4 +1,4 @@
-from .BaseTool import BaseTool
+from .base import BaseTool
 from tavily import TavilyClient
 
 class WebSearchTool(BaseTool):

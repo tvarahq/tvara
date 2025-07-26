@@ -1,4 +1,4 @@
-from tvara.models.base import BaseModel
+from .base import BaseModel
 from typing import Optional
 from google import genai
 

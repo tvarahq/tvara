@@ -1,5 +1,5 @@
-from tvara.models.gemini import GoogleGeminiModel
-from tvara.models.supported_models import gemini_supported
+from .gemini import GoogleGeminiModel
+from .supported_models import gemini_supported
 
 class ModelFactory:
     """
