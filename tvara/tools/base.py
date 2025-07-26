@@ -15,6 +15,3 @@ class BaseTool(ABC):
         Executes the tool logic on input_data and returns the result.
         """
         pass
-
-    def __call__(self, input_data: str) -> str:
-        return self.run(input_data)

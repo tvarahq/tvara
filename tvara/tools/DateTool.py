@@ -1,5 +1,5 @@
 import datetime
-from .BaseTool import BaseTool
+from .base import BaseTool
 
 class DateTool(BaseTool):
     def __init__(self):

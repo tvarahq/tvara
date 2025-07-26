@@ -1,4 +1,4 @@
-from .BaseTool import BaseTool
+from .base import BaseTool
 
 class CalculatorTool(BaseTool):
     def __init__(self):

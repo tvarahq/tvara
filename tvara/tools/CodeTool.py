@@ -1,4 +1,4 @@
-from .BaseTool import BaseTool
+from .base import BaseTool
 import sys
 import io
 import traceback
