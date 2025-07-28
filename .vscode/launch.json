@@ -8,6 +8,14 @@
       "program": "${workspaceFolder}/examples/single_agent.py",
       "console": "integratedTerminal",
       "python": "${workspaceFolder}/venv/Scripts/python.exe"
+    },
+    {
+      "name": "Multi Agent Debugger",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/examples/multi_agent_pipeline.py",
+      "console": "integratedTerminal",
+      "python": "${workspaceFolder}/venv/Scripts/python.exe"
     }
   ]
 }
