@@ -5,15 +5,23 @@
       "name": "Single Agent Debugger",
       "type": "debugpy",
       "request": "launch",
-      "program": "${workspaceFolder}/examples/single_agent.py",
+      "program": "${workspaceFolder}/examples/sample_single_agent.py",
       "console": "integratedTerminal",
       "python": "${workspaceFolder}/venv/Scripts/python.exe"
     },
     {
-      "name": "Multi Agent Debugger",
+      "name": "Sequential Workflow Debugger",
       "type": "debugpy",
       "request": "launch",
-      "program": "${workspaceFolder}/examples/multi_agent_pipeline.py",
+      "program": "${workspaceFolder}/examples/sample_sequential_workflow.py",
+      "console": "integratedTerminal",
+      "python": "${workspaceFolder}/venv/Scripts/python.exe"
+    },
+    {
+      "name": "Supervisor Workflow Debugger",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/examples/sample_supervisor_workflow.py",
       "console": "integratedTerminal",
       "python": "${workspaceFolder}/venv/Scripts/python.exe"
     }
