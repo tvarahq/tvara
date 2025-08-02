@@ -6,16 +6,6 @@ import os
 
 load_dotenv()
 
-# basic_agent = Agent(
-#     name="SadAI",
-#     model="gemini-2.5-flash",
-#     api_key=os.getenv("MODEL_API_KEY"),
-#     tools=[WebSearchTool(api_key=os.getenv("TAVILY_API_KEY")), DateTool(), CodeTool()],
-#     connectors=[GitHubConnector(name="github", token=os.getenv("GITHUB_PAT"))]
-# )
-
-# print(basic_agent.run("get me the readme of the repo called tvara by tvarahq on GitHub"))
-
 my_slack_agent = Agent(
     name="Slack Agent",
     model="gemini-2.5-flash",

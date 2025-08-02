@@ -1,4 +1,4 @@
-from tvara.core import Agent, Prompt
+from tvara.core import Agent, Workflow, Prompt
 from tvara.tools import DateTool, WebSearchTool, CodeTool
 from tvara.connectors import GitHubConnector, SlackConnector
 from dotenv import load_dotenv
@@ -30,18 +30,24 @@ slack_agent = Agent(
     connectors=[SlackConnector(name="slack", token=os.getenv("SLACK_BOT_TOKEN"))]
 )
 
-headlines_agent = Agent(
-    name="Headlines Agent",
+manager_agent = Agent(
+    name="Manager Agent",
     model="gemini-2.5-flash",
     api_key=os.getenv("MODEL_API_KEY"),
     prompt=Prompt(
-        raw_prompt="You are a news Headlines generator. Generate a concise headline given the context to you."
+        raw_prompt="You are a workflow manager coordinating multiple AI agents. Your job is to decide what should happen next."
     )
 )
 
-result_1 = basic_agent.run("get me the readme of a repo called speechLM by ashishlal2003 on GitHub")
-result_2 = summarizer_agent.run(f"summarize the following content: {result_1}")
-# result_3 = headlines_agent.run(f"generate a concise headline for the following summary: {result_2}")
-result_4 = slack_agent.run(f"post the following summary to my Slack channel called all-tvara in a sad and depressed tone: {result_2}")
+my_workflow = Workflow(
+    name= "Sample Workflow",
+    agents=[basic_agent, summarizer_agent, slack_agent],
+    mode= "supervised",
+    manager_agent=manager_agent,
+    max_iterations=3,
+)
 
-print(f"{blue}Everything done!{reset}")
+result = my_workflow.run("Send the latest readme file of the tvara repository by tvarahq on GitHub to the Slack channel #test-conn. Ensure you send a summary only which is in a cheerful product launch business tone!")
+
+print(f"{blue}Workflow Result:{reset} {result.final_output}")
+print(f"{blue}Workflow summary:{reset} {my_workflow.get_workflow_summary()}")
