@@ -1,21 +1,23 @@
 # Tvara
 ![Tvara](assets/Tvara_Stretched.png)
 
-**Tvara** is a powerful Python SDK for building intelligent AI agents with tools, connectors, and multi-agent workflows. Create sophisticated AI systems that can interact with external services, execute code, search the web, and coordinate multiple agents seamlessly.
+**Tvara** is a powerful Python SDK for building intelligent, multi-agent AI workflows with minimal boilerplate. Unlike LangChain or LangGraph, Tvara emphasizes plug-and-play simplicity—offering prebuilt connectors (e.g., GitHub, Slack), tool abstractions (e.g., web search, code execution), and native support for both sequential and supervised agent coordination.
+
+Whether you're building a personal automation, customer support bot, or a full-fledged agentic app, Tvara lets you focus on what your agents do, not how to wire them together.
 
 ---
 
 ## ✨ Features
 
-- 🤖 **Smart AI Agents** - Create agents with different models (Gemini, OpenAI, etc.)
-- 🛠️ **Built-in Tools** - Web search, code execution, calculations, date/time utilities
-- 🔗 **External Connectors** - GitHub, Slack integrations with more coming
-- 🔄 **Multi-Agent Workflows** - Sequential and supervised agent coordination
-- 📝 **Flexible Prompting** - Template-based and raw prompt support
-- 🎯 **Easy Integration** - Simple API with comprehensive error handling
-- 🔧 **Extensible Architecture** - Easy to add custom tools and connectors
+- **Smart AI Agents** - Create agents with different models (Gemini, OpenAI, etc.)
+- **Built-in Tools** - Web search, code execution, calculations, date/time utilities
+- **External Connectors** - GitHub, Slack integrations with more coming
+- **Multi-Agent Workflows** - Sequential and supervised agent coordination
+- **Flexible Prompting** - Template-based and raw prompt support
+- **Easy Integration** - Simple API with comprehensive error handling
+- **Extensible Architecture** - Easy to add custom tools and connectors
 
-> * Coming soon: Better workflow orchestration, multi-step agent execution, role-based behavior, and a visual interface for building agents and workflows.
+> * Coming soon: Better workflow orchestration, multi-step agent execution, larger repo of connectors, role-based behavior, and a visual interface for building agents and workflows.
 
 ---
 
@@ -80,7 +82,7 @@ response = agent.run("List out all files in my current working directory using P
 print(response)
 ```
 
-An example of a sequential workflow with multiple agents:
+### An example of a sequential workflow with multiple agents:
 
 ```python
 from tvara.core import Agent, Workflow, Prompt
@@ -122,7 +124,7 @@ print(f"Workflow Result: {result.final_output}")
 print(f"Workflow summary: {my_workflow.get_workflow_summary()}")
 ```
 
-An example of a supervised workflow with multiple agents:
+### An example of a supervised workflow with multiple agents:
 
 ```python
 from tvara.core import Agent, Workflow, Prompt
