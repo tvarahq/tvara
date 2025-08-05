@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "tvara"
-version = "0.1"
+version = "0.1.1"
 description = "A Python package for Tvara, a tool for automating workflows."
 authors = ["Ashish Lal <ashishlal2003@gmail.com>"]
 license = "MIT"
@@ -10,12 +10,12 @@ homepage = "https://aitvara.in"
 repository = "https://github.com/tvarahq/tvara"
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = ">=3.9"
+google-genai = "^1.27.0"
+tavily-python = "^0.7.10"
 
 [tool.poetry.dev-dependencies]
 pytest = "^8.4.1"
-google-genai = "^1.27.0"
-tavily-python = "^0.7.10"
 
 [build-system]
 requires = ["poetry-core"]

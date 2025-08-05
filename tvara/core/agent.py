@@ -51,10 +51,10 @@ class Agent:
 
         self.prompt = prompt or Prompt(
             template_name="basic_prompt_template",
-            variables={"name": self.name, "description": "An AI assistant."},
-            tools=self.tools,
-            connectors=self.connectors
         )
+
+        self.prompt.set_tools(self.tools)
+        self.prompt.set_connectors(self.connectors)
 
     def _extract_json(self, text: str) -> dict | None:
         try:

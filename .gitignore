@@ -5,3 +5,4 @@ __pycache__/
 !.vscode/launch.json
 !.vscode/tasks.json
 dist/
+.pytest_cache/
