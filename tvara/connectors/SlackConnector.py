@@ -4,9 +4,8 @@ import json
 from typing import Dict, Any, Union
 
 class SlackConnector(BaseConnector):
-    def __init__(self, name: str, token: str):
-        super().__init__(name)
-        self.token = token
+    def __init__(self, token: str):
+        super().__init__(name="Slack", token=token)
         self.base_url = "https://slack.com/api"
         self.headers = {
             "Authorization": f"Bearer {token}",

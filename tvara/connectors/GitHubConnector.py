@@ -4,9 +4,8 @@ import json
 from typing import Dict, Any, Union
 
 class GitHubConnector(BaseConnector):
-    def __init__(self, name: str, token: str):
-        super().__init__(name)
-        self.token = token
+    def __init__(self, token: str):
+        super().__init__(name="GitHub", token=token)
         self.base_url = "https://api.github.com"
         self.headers = {
             "Authorization": f"Bearer {token}",

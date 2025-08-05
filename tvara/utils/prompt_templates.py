@@ -1,6 +1,6 @@
 import json
 
-def basic_prompt_template(name: str, description: str, **kwargs) -> str:
+def basic_prompt_template(**kwargs) -> str:
     tools_str = ", ".join([t.name for t in kwargs.get("tools", [])]) if kwargs.get("tools") else "no tools"
     conns_str = ", ".join([c.name for c in kwargs.get("connectors", [])]) if kwargs.get("connectors") else "no connectors"
 
@@ -12,7 +12,7 @@ def basic_prompt_template(name: str, description: str, **kwargs) -> str:
                 connector_docs += f"- Action: {action}\n  Input schema: {json.dumps(schema)}\n"
 
     return f"""
-You are {name}, {description}
+You are an AI assistant who is helpful and friendly.
 
 You have access to the following tools:
 {tools_str}
