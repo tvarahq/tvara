@@ -1,6 +1,7 @@
 from .gemini import GoogleGeminiModel
 from .openai import OpenAIModel
-from .supported_models import gemini_supported, openai_supported
+from .claude import ClaudeModel
+from .supported_models import gemini_supported, openai_supported, claude_supported
 
 class ModelFactory:
     """
@@ -8,7 +9,8 @@ class ModelFactory:
     """
     _model_map = {
         **{model_name: GoogleGeminiModel for model_name in gemini_supported},
-        **{model_name: OpenAIModel for model_name in openai_supported}
+        **{model_name: OpenAIModel for model_name in openai_supported},
+        **{model_name: ClaudeModel for model_name in claude_supported}
     }
     
     @staticmethod

@@ -1,5 +1,4 @@
 from .base import BaseModel
-from typing import Optional
 from openai import OpenAI
 
 class OpenAIModel(BaseModel):
