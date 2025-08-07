@@ -1,12 +1,14 @@
 from .gemini import GoogleGeminiModel
-from .supported_models import gemini_supported
+from .openai import OpenAIModel
+from .supported_models import gemini_supported, openai_supported
 
 class ModelFactory:
     """
     Factory class to create model instances based on the model name.
     """
     _model_map = {
-        model_name: GoogleGeminiModel for model_name in gemini_supported
+        **{model_name: GoogleGeminiModel for model_name in gemini_supported},
+        **{model_name: OpenAIModel for model_name in openai_supported}
     }
     
     @staticmethod
