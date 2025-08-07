@@ -42,3 +42,22 @@ gemini_supported = ["gemini-1.0-pro-vision-latest",
     "gemma-3n-e2b-it",
     "gemini-2.5-flash-lite"
 ]
+
+openai_supported = [
+    "gpt-35-turbo",
+    "gpt-35-turbo-instruct",
+    "gpt-4",
+    "gpt-4o",
+    "gpt-4.5",
+    "o1-preview",
+    "o1-mini",
+    "o1",
+    "o1-pro",
+    "o3-mini",
+    "o3-mini-high",
+    "o3",
+    "o3-pro",
+    "o4-mini",
+    "gpt-oss-120b",
+    "gpt-oss-20b"
+]
