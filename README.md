@@ -1,5 +1,7 @@
 # Tvara
-![Tvara](assets/Tvara_Stretched.png)
+<p align="center">
+  <img src="assets/tvara_full_logo.png" alt="Tvara" />
+</p>
 
 **Tvara** is a powerful Python SDK for building intelligent, multi-agent AI workflows with minimal boilerplate. Unlike LangChain or LangGraph, Tvara emphasizes plug-and-play simplicity—offering prebuilt connectors (e.g., GitHub, Slack), tool abstractions (e.g., web search, code execution), and native support for both sequential and supervised agent coordination.
 
