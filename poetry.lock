@@ -201,6 +201,48 @@ files = [
 markers = {main = "platform_system == \"Windows\"", dev = "sys_platform == \"win32\""}
 
 [[package]]
+name = "composio"
+version = "0.8.0"
+description = "SDK for integrating Composio with your applications."
+optional = false
+python-versions = "<4,>=3.9"
+groups = ["main"]
+files = [
+    {file = "composio-0.8.0-py3-none-any.whl", hash = "sha256:f1634a1866e9ac3f20556f2f210e693754e322efff7817d4453d60d16544332f"},
+    {file = "composio-0.8.0.tar.gz", hash = "sha256:6666194f16858aafcfe29b3a23de02af34effb658e5d49b21fc0602247b05850"},
+]
+
+[package.dependencies]
+composio-client = "1.6.0"
+openai = "*"
+pydantic = ">=2.6.4"
+pysher = ">=1.0.8"
+typing-extensions = ">=4.0.0"
+
+[[package]]
+name = "composio-client"
+version = "1.6.0"
+description = "The official Python library for the composio API"
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "composio_client-1.6.0-py3-none-any.whl", hash = "sha256:e32055eeae8b49e7b94329808604f849e74bc557a453d3e37b37fe5cb627930b"},
+    {file = "composio_client-1.6.0.tar.gz", hash = "sha256:2adaf9bdaf449384d1d32f9361af20009c0675c68381cd9e9a4234f08969ab23"},
+]
+
+[package.dependencies]
+anyio = ">=3.5.0,<5"
+distro = ">=1.7.0,<2"
+httpx = ">=0.23.0,<1"
+pydantic = ">=1.9.0,<3"
+sniffio = "*"
+typing-extensions = ">=4.10,<5"
+
+[package.extras]
+aiohttp = ["aiohttp", "httpx-aiohttp (>=0.1.8)"]
+
+[[package]]
 name = "distro"
 version = "1.9.0"
 description = "Distro - an OS platform information API"
@@ -458,14 +500,14 @@ files = [
 
 [[package]]
 name = "openai"
-version = "1.99.2"
+version = "1.99.9"
 description = "The official Python library for the openai API"
 optional = false
 python-versions = ">=3.8"
 groups = ["main"]
 files = [
-    {file = "openai-1.99.2-py3-none-any.whl", hash = "sha256:110d85b8ed400e1d7b02f8db8e245bd757bcde347cb6923155f42cd66a10aa0b"},
-    {file = "openai-1.99.2.tar.gz", hash = "sha256:118075b48109aa237636607b1346cf03b37cb9d74b0414cb11095850a0a22c96"},
+    {file = "openai-1.99.9-py3-none-any.whl", hash = "sha256:9dbcdb425553bae1ac5d947147bebbd630d91bbfc7788394d4c4f3a35682ab3a"},
+    {file = "openai-1.99.9.tar.gz", hash = "sha256:f2082d155b1ad22e83247c3de3958eb4255b20ccf4a1de2e6681b6957b554e92"},
 ]
 
 [package.dependencies]
@@ -687,6 +729,21 @@ files = [
 
 [package.extras]
 windows-terminal = ["colorama (>=0.4.6)"]
+
+[[package]]
+name = "pysher"
+version = "1.0.8"
+description = "Pusher websocket client for python, based on Erik Kulyk's PythonPusherClient"
+optional = false
+python-versions = "*"
+groups = ["main"]
+files = [
+    {file = "Pysher-1.0.8.tar.gz", hash = "sha256:7849c56032b208e49df67d7bd8d49029a69042ab0bb45b2ed59fa08f11ac5988"},
+]
+
+[package.dependencies]
+requests = ">=2.26.0"
+websocket-client = "!=0.49"
 
 [[package]]
 name = "pytest"
@@ -1057,6 +1114,23 @@ socks = ["pysocks (>=1.5.6,!=1.5.7,<2.0)"]
 zstd = ["zstandard (>=0.18.0)"]
 
 [[package]]
+name = "websocket-client"
+version = "1.8.0"
+description = "WebSocket client for Python with low level API options"
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "websocket_client-1.8.0-py3-none-any.whl", hash = "sha256:17b44cc997f5c498e809b22cdf2d9c7a9e71c02c8cc2b6c56e7c2d1239bfa526"},
+    {file = "websocket_client-1.8.0.tar.gz", hash = "sha256:3239df9f44da632f96012472805d40a23281a991027ce11d2f45a6f24ac4c3da"},
+]
+
+[package.extras]
+docs = ["Sphinx (>=6.0)", "myst-parser (>=2.0.0)", "sphinx-rtd-theme (>=1.1.0)"]
+optional = ["python-socks", "wsaccel"]
+test = ["websockets"]
+
+[[package]]
 name = "websockets"
 version = "15.0.1"
 description = "An implementation of the WebSocket Protocol (RFC 6455 & 7692)"
@@ -1137,5 +1211,5 @@ files = [
 
 [metadata]
 lock-version = "2.1"
-python-versions = ">=3.9"
-content-hash = "d471158845972b052cd7344c9c30260e3af299f534b3e91448a988e14284c5af"
+python-versions = ">=3.9,<4"
+content-hash = "378515aefcba40b781df5d927a006a24e4c92f39bfa4bf01ba423e1970804c18"

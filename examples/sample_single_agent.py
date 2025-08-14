@@ -1,15 +1,23 @@
 from tvara.core import Agent
-from tvara.tools import DateTool, WebSearchTool, CodeTool
-from tvara.connectors import GitHubConnector, SlackConnector
 from dotenv import load_dotenv
 import os
 
 load_dotenv()
 
-my_slack_agent = Agent(
-    name="Slack Agent",
-    model="gemini-2.5-flash",
+try:
+    from composio import Composio
+    composio_client = Composio(api_key=os.getenv("COMPOSIO_API_KEY"))
+    print("Composio client initialized successfully")
+except Exception as e:
+    print(f"Composio initialization failed: {e}")
+
+agent = Agent(
+    name="GitHub-Slack Agent",
+    model="gemini-2.5-flash", 
     api_key=os.getenv("MODEL_API_KEY"),
-    tools=[WebSearchTool(api_key=os.getenv("TAVILY_API_KEY")), DateTool(), CodeTool()],
-    connectors=[SlackConnector(token=os.getenv("SLACK_BOT_TOKEN"))]
+    composio_api_key=os.getenv("COMPOSIO_API_KEY"),
+    composio_toolkits=["twitter"]
 )
+
+response = agent.run("create a tweet saying Hello World!")
+print(response)
