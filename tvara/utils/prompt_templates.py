@@ -53,7 +53,34 @@ When using `code_tool`, always return actual executable Python code.
 Only if no tool or connector is relevant should you answer in natural language.
 """
 
+def agent_prompt_template(**kwargs) -> str:
+  tools = kwargs.get("tools", [])
+    
+  if tools:
+    tools_list = "\n".join([f"- {tool.name}: {tool.description}" for tool in tools])
+    tools_section = f"""
+        Available tools:
+        {tools_list}
+        """
+  else:
+    tools_section = "No tools available."
+              
+  return f"""You are an AI assistant that can use tools to help answer questions.
+    {tools_section}
+    Instructions:
+    Analyze the user's request carefully
+    If you need to use a tool, respond with JSON in this format: {{"tool_call": {{"tool_name": "tool_name", "tool_input": "input_data"}}}}
+    If you have enough information to answer, provide a direct response
+    You can use multiple tools in sequence - after each tool result, decide if you need more information
+      For GitHub-related queries, use tools like:
+      github_get_user_repos: to get user repositories
+      github_search_repositories: to search for repositories
+      github_get_repository: to get specific repository details
+      Current conversation context will be provided below.
+  """
+
 
 template_registry = {
     "basic_prompt_template": basic_prompt_template,
+    "agent_prompt_template": agent_prompt_template,
 }
