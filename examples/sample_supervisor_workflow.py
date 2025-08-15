@@ -1,33 +1,29 @@
 from tvara.core import Agent, Workflow, Prompt
-from tvara.tools import DateTool, WebSearchTool, CodeTool
-from tvara.connectors import GitHubConnector, SlackConnector
 from dotenv import load_dotenv
 import os
 
 load_dotenv()
 
-blue = "\033[94m"
-reset = "\033[0m"
-
-basic_agent = Agent(
-    name="GitHub Agent",
+weather_agent = Agent(
+    name="Weather Agent",
     model="gemini-2.5-flash",
     api_key=os.getenv("MODEL_API_KEY"),
-    tools=[WebSearchTool(api_key=os.getenv("TAVILY_API_KEY")), DateTool(), CodeTool()],
-    connectors=[GitHubConnector(token=os.getenv("GITHUB_PAT"))]
+    composio_api_key=os.getenv("COMPOSIO_API_KEY"),
+    composio_toolkits=["WEATHERMAP"],
 )
 
-summarizer_agent = Agent(
-    name="Summarizer",
+poet_agent = Agent(
+    name="Poet Agent",
     model="gemini-2.5-flash",
     api_key=os.getenv("MODEL_API_KEY"),
 )
 
-slack_agent = Agent(
-    name="Slack Agent",
+gmail_agent = Agent(
+    name="Gmail Agent",
     model="gemini-2.5-flash",
     api_key=os.getenv("MODEL_API_KEY"),
-    connectors=[SlackConnector(token=os.getenv("SLACK_BOT_TOKEN"))]
+    composio_api_key=os.getenv("COMPOSIO_API_KEY"),
+    composio_toolkits=["gmail"]
 )
 
 manager_agent = Agent(
@@ -41,7 +37,9 @@ manager_agent = Agent(
 
 my_workflow = Workflow(
     name= "Sample Workflow",
-    agents=[basic_agent, summarizer_agent, slack_agent],
+    agents=[weather_agent, poet_agent, gmail_agent],
     mode= "supervised",
     manager_agent=manager_agent,
 )
+
+response = my_workflow.run("get the latest weather of sanfrancisco, write about it in a poetic way and send it to team@tvarahq.com on Gmail").final_output

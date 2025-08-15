@@ -1,12 +1,12 @@
 [tool.poetry]
 name = "tvara"
-version = "0.1.2"
+version = "1.0.0"
 description = "A Python package for Tvara, a tool for automating workflows."
 authors = ["Team Tvara <team@tvarahq.com>"]
 license = "MIT"
 readme = "README.md"
 keywords = ["agents", "AI", "workflow", "tvara"]
-homepage = "https://aitvara.in"
+homepage = "https://tvarahq.com"
 repository = "https://github.com/tvarahq/tvara"
 
 [tool.poetry.scripts]
