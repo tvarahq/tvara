@@ -12,6 +12,4 @@ agent = Agent(
     composio_toolkits=["notion"],
 )
 
-response = agent.run("hey hi there. can you summarize 'Ashish's 7th sem' page for me?")
-
-print(response)
+response = agent.run("hey hi there. can you summarize 'Pondicherry - 2025' for me?")

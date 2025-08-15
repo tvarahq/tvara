@@ -42,4 +42,4 @@ my_workflow = Workflow(
     manager_agent=manager_agent,
 )
 
-print(my_workflow.run("get the latest weather of sanfrancisco, write about it in a poetic way and send it to team@tvarahq.com on Gmail").final_output)
+response = my_workflow.run("get the latest weather of sanfrancisco, write about it in a poetic way and send it to team@tvarahq.com on Gmail").final_output

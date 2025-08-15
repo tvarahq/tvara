@@ -2,13 +2,15 @@ from typing import List, Optional, Dict, Any
 from .prompt import Prompt
 from tvara.models import ModelFactory
 from tvara.tools.ComposioTool import ComposioToolWrapper
+from tvara.utils.auth_cache import AuthCache
 import json
 import re
 import logging
+import os
 
 logging.getLogger("httpx").setLevel(logging.WARNING)
-logging.getLogger("google_genai").setLevel(logging.WARNING)
 logging.getLogger("composio").setLevel(logging.WARNING)
+logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 BLUE = "\033[94m"
 GREEN = "\033[92m"
@@ -30,10 +32,12 @@ class Agent:
         composio_toolkits: Optional[List[str]] = None,
         prompt: Optional[Prompt] = None,
         max_iterations: int = 10,
-        user_id: str = "default"
+        user_id: str = "default",
+        cache_auth: bool = True,
+        cache_validity_minutes: int = 10
     ):
         """
-        Initialize an AI Agent.
+        Initialize an AI Agent with optional tool integration and auth caching.
         
         Args:
             name (str): Agent identifier name
@@ -44,9 +48,8 @@ class Agent:
             prompt (Optional[Prompt]): Custom prompt template
             max_iterations (int): Maximum tool usage iterations
             user_id (str): User identifier for tool authorization
-            
-        Raises:
-            ValueError: If required parameters are missing
+            cache_auth (bool): Enable authentication caching
+            cache_validity_minutes (int): Cache validity in minutes
         """
         if not model:
             raise ValueError("Model must be specified.")
@@ -59,14 +62,15 @@ class Agent:
         self.max_iterations = max_iterations
         self.user_id = user_id
         
-        logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(f"Agent-{name}")
-        self.logger.setLevel(logging.WARNING) 
+        self.logger.handlers.clear()
+        self.logger.propagate = False
         
+        self.auth_cache = AuthCache(cache_validity_minutes=cache_validity_minutes) if cache_auth else None
         self.tools = []
         self.composio_client = None
         
-        self._log(f"{BOLD}{CYAN}🤖 Initializing Agent: {name}{RESET}")
+        self._log(f"\n{BOLD}{CYAN}🤖 Initializing Agent: {name}{RESET}")
         self._log(f"{BLUE}   Model: {model}{RESET}")
         
         if composio_api_key and composio_toolkits:
@@ -81,31 +85,11 @@ class Agent:
         self._log(f"{GREEN}✅ Agent '{name}' initialized successfully{RESET}\n")
 
     def _log(self, message: str, level: str = "info"):
-        """
-        Log a message with specified level.
-        
-        Args:
-            message (str): Message to log
-            level (str): Logging level (info, warning, error)
-        """
+        """Log message only to console."""
         print(message)
-        if hasattr(self, 'logger'):
-            getattr(self.logger, level)(message)
 
     def _initialize_composio_client(self, api_key: Optional[str]):
-        """
-        Initialize Composio client for tool integration.
-        
-        Args:
-            api_key (Optional[str]): Composio API key
-            
-        Returns:
-            Composio client instance or None
-            
-        Raises:
-            ImportError: If Composio package not installed
-            Exception: If initialization fails
-        """
+        """Initialize Composio client for tool integration."""
         if not api_key:
             return None
 
@@ -120,15 +104,7 @@ class Agent:
             raise Exception(f"Composio initialization failed: {e}")
         
     def _is_no_auth_toolkit(self, toolkit: str) -> bool:
-        """
-        Check if toolkit requires authentication.
-        
-        Args:
-            toolkit (str): Toolkit name to check
-            
-        Returns:
-            bool: True if no authentication required
-        """
+        """Check if toolkit requires authentication."""
         no_auth_toolkits = [
             "COMPOSIO_SEARCH", 
             "CODEINTERPRETER", 
@@ -140,15 +116,7 @@ class Agent:
         return toolkit.upper() in no_auth_toolkits
 
     def _setup_toolkits(self, toolkits: Optional[List[str]]) -> List[ComposioToolWrapper]:
-        """
-        Setup and authorize Composio toolkits.
-        
-        Args:
-            toolkits (Optional[List[str]]): List of toolkit names to setup
-            
-        Returns:
-            List[ComposioToolWrapper]: List of wrapped tool instances
-        """
+        """Setup and authorize Composio toolkits with smart caching."""
         if not toolkits:
             return []
         
@@ -156,30 +124,39 @@ class Agent:
         self._log(f"{CYAN}   🔧 Setting up toolkits...{RESET}")
         
         for toolkit in toolkits:
-            self._log(f"{BLUE}   📦 {toolkit}:{RESET}")
+            self._log(f"{BLUE}   📦 {toolkit}: {RESET}")
 
             if not self._is_no_auth_toolkit(toolkit):
-                try:
-                    connection_request = self.composio_client.toolkits.authorize(
-                        user_id=self.user_id, 
-                        toolkit=toolkit.lower()
-                    )
-                    
-                    self._log(f"{YELLOW}Auth required{RESET}")
-                    self._log(f"{CYAN}      🔗 Visit: {connection_request.redirect_url}{RESET}")
-                    self._log(f"{YELLOW}      ⏳ Waiting for authorization...{RESET}")
-                    
-                    connection_request.wait_for_connection()
-                    self._log(f"{GREEN}      ✅ Authorized{RESET}")
-                    
-                except Exception as e:
-                    if 'already authorized' in str(e).lower():
-                        self._log(f"{GREEN}Already authorized{RESET}")
-                    else:
-                        self._log(f"{RED}❌ Failed: {e}{RESET}", "error")
-                        continue
+                if self.auth_cache and self.auth_cache.is_toolkit_cached(toolkit, self.user_id):
+                    print(f"{GREEN}Using cached auth ✨{RESET}")
+                else:
+                    try:
+                        connection_request = self.composio_client.toolkits.authorize(
+                            user_id=self.user_id, 
+                            toolkit=toolkit.lower()
+                        )
+                        
+                        print(f"{YELLOW}Auth required{RESET}")
+                        print(f"{CYAN}      🔗 Visit: {connection_request.redirect_url}{RESET}")
+                        print(f"{YELLOW}      ⏳ Waiting for authorization...{RESET}")
+                        
+                        connection_request.wait_for_connection()
+                        print(f"{GREEN}      ✅ Authorized{RESET}")
+                        
+                        if self.auth_cache:
+                            self.auth_cache.cache_toolkit_auth(toolkit, self.user_id)
+                            print(f"{CYAN}      💾 Auth cached for 10 minutes{RESET}")
+                        
+                    except Exception as e:
+                        if 'already authorized' in str(e).lower():
+                            print(f"{GREEN}Already authorized{RESET}")
+                            if self.auth_cache:
+                                self.auth_cache.cache_toolkit_auth(toolkit, self.user_id)
+                        else:
+                            print(f"{RED}❌ Failed: {e}{RESET}")
+                            continue
             else:
-                self._log(f"{GREEN}Ready (no auth required){RESET}")
+                print(f"{GREEN}Ready (no auth required){RESET}")
             
             try:
                 toolkit_tools = self.composio_client.tools.get(
@@ -188,7 +165,7 @@ class Agent:
                 )
                 
                 tool_count = len(toolkit_tools) if toolkit_tools else 0
-                self._log(f"{BLUE}      📋 Found {tool_count} tools{RESET}")
+                print(f"{BLUE}      📋 Found {tool_count} tools{RESET}")
                 
                 if toolkit_tools:
                     for tool in toolkit_tools:
@@ -216,72 +193,15 @@ class Agent:
                             all_tools.append(wrapped_tool)
                             
                         except Exception as e:
-                            self._log(f"{RED}      ❌ Tool setup failed: {e}{RESET}", "error")
+                            self._log(f"{RED}      ❌ Tool setup failed: {e}{RESET}")
                             
             except Exception as e:
-                self._log(f"{RED}      ❌ Toolkit setup failed: {e}{RESET}", "error")
+                self._log(f"{RED}      ❌ Toolkit setup failed: {e}{RESET}")
         
         return all_tools
 
-    def _extract_json(self, text: str) -> dict | None:
-        """
-        Extract JSON object from text response.
-        
-        Args:
-            text (str): Text containing JSON
-            
-        Returns:
-            dict | None: Extracted JSON object or None if not found
-        """
-        try:
-            match = re.search(r"(\{.*\})", text, re.DOTALL)
-            if match:
-                return json.loads(match.group(1))
-        except Exception:
-            return None
-
-    def _execute_tool(self, tool_name: str, tool_input: Any) -> str:
-        """
-        Execute a tool by name with given input.
-        
-        Args:
-            tool_name (str): Name of tool to execute
-            tool_input (Any): Input data for the tool
-            
-        Returns:
-            str: Tool execution result
-            
-        Raises:
-            ValueError: If tool not found
-        """
-        self._log(f"{CYAN}🔧 Executing tool: {tool_name}{RESET}")
-        
-        for tool in self.tools:
-            if tool.name == tool_name:
-                result = tool.run(tool_input)
-                self._log(f"{GREEN}✅ Tool completed successfully{RESET}")
-                return result
-        
-        for tool in self.tools:
-            if tool_name.lower() in tool.name.lower() or tool.name.lower() in tool_name.lower():
-                self._log(f"{YELLOW}🔄 Using partial match: {tool.name}{RESET}")
-                result = tool.run(tool_input)
-                self._log(f"{GREEN}✅ Tool completed successfully{RESET}")
-                return result
-                
-        available_tools = [tool.name for tool in self.tools]
-        raise ValueError(f"Tool '{tool_name}' not found. Available tools: {available_tools}")
-
     def run(self, input_data: str) -> str:
-        """
-        Process user input and generate response using tools if needed.
-        
-        Args:
-            input_data (str): User input to process
-            
-        Returns:
-            str: Generated response
-        """
+        """Process user input and generate response using tools if needed."""
         self._log(f"\n{BOLD}{PURPLE}🚀 Agent '{self.name}' Processing Request{RESET}")
         self._log(f"{BLUE}📝 Input: {input_data[:100]}{'...' if len(input_data) > 100 else ''}{RESET}")
         
@@ -303,10 +223,15 @@ class Agent:
             response = model_instance.get_response(current_prompt)
             
             tool_call = self._extract_tool_call(response)
-            
+
+            if not response:
+                self._log(f"{RED}⚠️  No response from model{RESET}")
+                conversation_history.append(f"Assistant response without tool call: {response}")
+                continue
+
             if not tool_call:
                 if "tool failed" in response.lower() or "error executing tool" in response.lower():
-                    self._log(f"{RED}⚠️  Tool execution failed, continuing...{RESET}", "warning")
+                    self._log(f"{RED}⚠️  Tool execution failed, continuing...{RESET}")
                     conversation_history.append(f"Assistant response without tool call: {response}")
                     continue
                 else:
@@ -327,50 +252,49 @@ class Agent:
                 
             except Exception as e:
                 error_msg = f"Error executing tool '{tool_call['tool_name']}': {str(e)}"
-                self._log(f"{RED}❌ {error_msg}{RESET}", "error")
+                self._log(f"{RED}❌ {error_msg}{RESET}")
                 conversation_history.append(error_msg)
 
         final_response = "Maximum iterations reached. Please try rephrasing your request."
-        self._log(f"{RED}⏰ {final_response}{RESET}", "warning")
+        self._log(f"{RED}⏰ {final_response}{RESET}")
         return final_response
 
     def _print_final_response(self, response: str):
-        """
-        Print final response with formatting.
-        
-        Args:
-            response (str): Response to print
-        """
-        self._log(f"\n{BOLD}{GREEN}{'='*60}{RESET}")
+        """Print final response with beautiful formatting."""
+        self._log(f"\n{BOLD}{GREEN}{'='*80}{RESET}")
         self._log(f"{BOLD}{GREEN}🎯 FINAL RESPONSE FROM {self.name.upper()}{RESET}")
-        self._log(f"{BOLD}{GREEN}{'='*60}{RESET}")
+        self._log(f"{BOLD}{GREEN}{'='*80}{RESET}")
         self._log(f"{WHITE}{response}{RESET}")
-        self._log(f"{BOLD}{GREEN}{'='*60}{RESET}\n")
+        self._log(f"{BOLD}{GREEN}{'='*80}{RESET}\n")
+
+    def _execute_tool(self, tool_name: str, tool_input: Any) -> str:
+        """Execute a tool by name with given input."""
+        self._log(f"{CYAN}🔧 Executing tool: {tool_name}{RESET}")
+        
+        for tool in self.tools:
+            if tool.name == tool_name:
+                result = tool.run(tool_input)
+                self._log(f"{GREEN}✅ Tool completed successfully{RESET}")
+                return result
+        
+        for tool in self.tools:
+            if tool_name.lower() in tool.name.lower() or tool.name.lower() in tool_name.lower():
+                self._log(f"{YELLOW}🔄 Using partial match: {tool.name}{RESET}")
+                result = tool.run(tool_input)
+                self._log(f"{GREEN}✅ Tool completed successfully{RESET}")
+                return result
+                
+        available_tools = [tool.name for tool in self.tools]
+        raise ValueError(f"Tool '{tool_name}' not found. Available tools: {available_tools}")
 
     def _build_prompt_with_history(self, history: List[str]) -> str:
-        """
-        Build prompt including conversation history.
-        
-        Args:
-            history (List[str]): List of conversation messages
-            
-        Returns:
-            str: Complete prompt with history
-        """
+        """Build prompt including conversation history."""
         base_prompt = self.prompt.render()
         history_text = "\n".join(history)
         return f"{base_prompt}\n\nConversation:\n{history_text}\n\nPlease respond:"
     
     def _build_basic_prompt(self, input_data: str) -> str:
-        """
-        Build basic prompt for agents without tools.
-        
-        Args:
-            input_data (str): User input
-            
-        Returns:
-            str: Basic prompt template
-        """
+        """Build basic prompt for agents without tools."""
         return f"""You are an AI assistant that listens carefully to the user's input and provides a thoughtful response.
 
 User input: {input_data}
@@ -378,15 +302,7 @@ User input: {input_data}
 Please provide a helpful and informative response to the user's question or request."""
 
     def _extract_tool_call(self, response: str) -> Optional[Dict[str, Any]]:
-        """
-        Extract tool call from model response.
-        
-        Args:
-            response (str): Model response text
-            
-        Returns:
-            Optional[Dict[str, Any]]: Tool call dict or None if not found
-        """
+        """Extract tool call from model response."""
         try:
             response_json = self._extract_json(response)
             if isinstance(response_json, dict) and "tool_call" in response_json:
@@ -394,3 +310,24 @@ Please provide a helpful and informative response to the user's question or requ
         except Exception:
             pass
         return None
+
+    def _extract_json(self, text: str) -> dict | None:
+        """Extract JSON object from text response."""
+        try:
+            match = re.search(r"(\{.*\})", text, re.DOTALL)
+            if match:
+                return json.loads(match.group(1))
+        except Exception:
+            return None
+
+    def clear_auth_cache(self):
+        """Clear authentication cache for this agent."""
+        if self.auth_cache:
+            self.auth_cache.clear_cache()
+            self._log(f"{YELLOW}🗑️  Authentication cache cleared{RESET}")
+
+    def get_auth_cache_status(self) -> Dict:
+        """Get current authentication cache status."""
+        if self.auth_cache:
+            return self.auth_cache.get_cache_status()
+        return {}
