@@ -16,8 +16,8 @@ agent = Agent(
     model="gemini-2.5-flash", 
     api_key=os.getenv("MODEL_API_KEY"),
     composio_api_key=os.getenv("COMPOSIO_API_KEY"),
-    composio_toolkits=["twitter"]
+    composio_toolkits=["COMPOSIO_SEARCH"]
 )
 
-response = agent.run("create a tweet saying Hello World!")
+response = agent.run("hey hi there. latest news on india pakistan")
 print(response)

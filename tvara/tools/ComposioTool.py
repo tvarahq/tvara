@@ -5,13 +5,18 @@ import json
 class ComposioToolWrapper(BaseTool):
     """Simplified wrapper to make Composio tools compatible with BaseTool interface"""
     
-    def __init__(self, composio_client, action_name: str, toolkit_name: str, description: str = ""):
+    def __init__(self, composio_client, action_name: str, toolkit_name: str, description: str = "", parameters: Dict = None):
         name = f"{toolkit_name}_{action_name}".lower().replace(" ", "_").replace("-", "_")
         super().__init__(name, description or f"{toolkit_name} {action_name} action")
         
         self.composio_client = composio_client
         self.action_name = action_name
         self.toolkit_name = toolkit_name
+        self.parameters = parameters or {}  # Store the parameters schema
+    
+    def get_parameters_schema(self) -> Dict:
+        """Return the parameters schema for this tool"""
+        return self.parameters
     
     def run(self, input_data: Any) -> str:
         """Execute the Composio tool"""

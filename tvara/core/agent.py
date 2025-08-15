@@ -96,22 +96,26 @@ class Agent:
                                 function_info = tool['function']
                                 slug = function_info.get('name')
                                 description = function_info.get('description', '')
+                                parameters = function_info.get('parameters', {})
                             else:
                                 slug = tool.get('slug') or tool.get('name')
                                 description = tool.get('description', '')
-                            
+                                parameters = tool.get('parameters', {})
+
                             if not slug:
                                 print(f"  ✗ Skipping tool with no slug: {tool}")
                                 continue
                             
+                            # Pass parameters to the wrapper
                             wrapped_tool = ComposioToolWrapper(
                                 composio_client=self.composio_client,
                                 action_name=slug,
                                 toolkit_name=toolkit,
-                                description=description
+                                description=description,
+                                parameters=parameters  # Include parameters schema
                             )
                             all_tools.append(wrapped_tool)
-                            print(f"  ✓ Added: {slug}")
+                            print(f"  ✓ Added: {slug} with parameters: {json.dumps(parameters, indent=2) if parameters else 'None'}")
                             
                         except Exception as e:
                             print(f"  ✗ Failed to wrap tool {tool}: {e}")
@@ -156,29 +160,24 @@ class Agent:
         
         conversation_history = [f"User input: {input_data}"]
         
-        for iteration in range(self.max_iterations):
-            print(f"Iteration {iteration + 1}")
-            
+        for iteration in range(self.max_iterations):            
             current_prompt = self._build_prompt_with_history(conversation_history)
             
-            response = model_instance.get_response(current_prompt)
-            print(f"Model response: {response}")
-            
+            response = model_instance.get_response(current_prompt)            
             tool_call = self._extract_tool_call(response)
             
             if not tool_call:
-                return response
-            
-            print(f"Tool call extracted: {tool_call}")
-            
+                if "tool failed" in response.lower() or "error executing tool" in response.lower():
+                    conversation_history.append(f"Assistant response without tool call: {response}")
+                    continue
+                else:
+                    return response
             try:
                 tool_result = self._execute_tool(
                     tool_call["tool_name"], 
                     tool_call["tool_input"]
                 )
-                
-                print(f"Tool result: {tool_result}")
-                
+                                
                 conversation_history.append(
                     f"Assistant called tool '{tool_call['tool_name']}' with input: {tool_call['tool_input']}"
                 )
@@ -188,7 +187,7 @@ class Agent:
                 error_msg = f"Error executing tool '{tool_call['tool_name']}': {str(e)}"
                 print(error_msg)
                 conversation_history.append(error_msg)
-        
+
         return "Maximum iterations reached. Please try rephrasing your request."
 
     def _build_prompt_with_history(self, history: List[str]) -> str:
@@ -206,4 +205,3 @@ class Agent:
         except Exception:
             pass
         return None
-
