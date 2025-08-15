@@ -311,45 +311,45 @@ composio_toolkits = [
 
 ### Authentication Required
 
-    ```python
-    # Popular authenticated toolkits
-    productivity_toolkits = [
-        "github",             # Repository management, issues, PRs
-        "slack",              # Team communication and channels
-        "gmail",              # Email management and automation
-        "notion",             # Knowledge base and documents
-        "google_calendar",    # Calendar and scheduling
-        "google_drive",       # File storage and sharing
-        "google_docs",        # Document creation and editing
-        "google_sheets",      # Spreadsheet management
-    ]
-    social_media_toolkits = [
-        "twitter",            # Social media management
-        "linkedin",           # Professional networking
-        "facebook",           # Social platform integration
-        "instagram",         # Photo and content sharing
-    ]
-    project_management_toolkits = [
-        "trello",            # Board-based project management
-        "asana",             # Task and project tracking
-        "jira",              # Issue tracking and agile
-        "monday",            # Work management platform
-        "clickup",           # All-in-one workspace
-    ]
-    communication_toolkits = [
-        "zoom",              # Video conferencing
-        "discord",           # Community and gaming chat
-        "teams",             # Microsoft Teams integration
-        "whatsapp",         # Messaging platform
-    ]
-    development_toolkits = [
-        "gitlab",            # Git repository hosting
-        "bitbucket",         # Atlassian git solution
-        "docker",            # Containerization platform
-        "aws",               # Amazon Web Services
-        "gcp",               # Google Cloud Platform
-        "azure",             # Microsoft Azure
-    ]
+```python
+# Popular authenticated toolkits
+productivity_toolkits = [
+    "github",             # Repository management, issues, PRs
+    "slack",              # Team communication and channels
+    "gmail",              # Email management and automation
+    "notion",             # Knowledge base and documents
+    "google_calendar",    # Calendar and scheduling
+    "google_drive",       # File storage and sharing
+    "google_docs",        # Document creation and editing
+    "google_sheets",      # Spreadsheet management
+]
+social_media_toolkits = [
+    "twitter",            # Social media management
+    "linkedin",           # Professional networking
+    "facebook",           # Social platform integration
+    "instagram",         # Photo and content sharing
+]
+project_management_toolkits = [
+    "trello",            # Board-based project management
+    "asana",             # Task and project tracking
+    "jira",              # Issue tracking and agile
+    "monday",            # Work management platform
+    "clickup",           # All-in-one workspace
+]
+communication_toolkits = [
+    "zoom",              # Video conferencing
+    "discord",           # Community and gaming chat
+    "teams",             # Microsoft Teams integration
+    "whatsapp",         # Messaging platform
+]
+development_toolkits = [
+    "gitlab",            # Git repository hosting
+    "bitbucket",         # Atlassian git solution
+    "docker",            # Containerization platform
+    "aws",               # Amazon Web Services
+    "gcp",               # Google Cloud Platform
+    "azure",             # Microsoft Azure
+]
 ```
 
 ### Finding All Available Toolkits
