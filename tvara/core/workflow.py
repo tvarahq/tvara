@@ -5,17 +5,37 @@ import json
 import logging
 import re
 
-blue = "\033[94m"
-reset = "\033[0m"
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("google_genai").setLevel(logging.WARNING)
+logging.getLogger("composio").setLevel(logging.WARNING)
+
+BLUE = "\033[94m"
+GREEN = "\033[92m"
+YELLOW = "\033[93m"
+RED = "\033[91m"
+PURPLE = "\033[95m"
+CYAN = "\033[96m"
+WHITE = "\033[97m"
+BOLD = "\033[1m"
+RESET = "\033[0m"
 
 class WorkflowMode(Enum):
     SEQUENTIAL = "sequential"
     SUPERVISED = "supervised"
-    PARALLEL = "parallel"  # Future extension
-    CONDITIONAL = "conditional"  # Future extension
+    PARALLEL = "parallel"
+    CONDITIONAL = "conditional"
 
 class WorkflowResult:
     def __init__(self, success: bool, final_output: str, agent_outputs: List[Dict[str, Any]], error: Optional[str] = None):
+        """
+        Workflow execution result container.
+        
+        Args:
+            success (bool): Whether workflow completed successfully
+            final_output (str): Final workflow output
+            agent_outputs (List[Dict[str, Any]]): List of agent execution results
+            error (Optional[str]): Error message if workflow failed
+        """
         self.success = success
         self.final_output = final_output
         self.agent_outputs = agent_outputs
@@ -32,18 +52,18 @@ class Workflow:
         enable_logging: bool = True
     ):
         """
-        Initializes a Tvara Workflow for orchestrating multiple agents.
-
-        ## Params:
-        - name (str): The name of the workflow.
-        - agents (List[Agent]): List of agents to be used in the workflow.
-        - mode (Literal["sequential", "supervised"]): Execution mode for the workflow.
-        - manager_agent (Optional[Agent]): Required for supervised mode. Acts as the coordinator.
-        - max_iterations (int): Maximum iterations for supervised mode to prevent infinite loops.
-        - enable_logging (bool): Whether to enable detailed logging.
-
-        ## Raises:
-        - ValueError: If configuration is invalid.
+        Initialize a multi-agent workflow orchestrator.
+        
+        Args:
+            name (str): Workflow identifier name
+            agents (List[Agent]): List of worker agents
+            mode (Literal["sequential", "supervised"]): Execution mode
+            manager_agent (Optional[Agent]): Manager agent for supervised mode
+            max_iterations (int): Maximum iterations for supervised mode
+            enable_logging (bool): Enable detailed logging
+            
+        Raises:
+            ValueError: If configuration is invalid
         """
         if not agents:
             raise ValueError("At least one agent must be provided.")
@@ -61,29 +81,55 @@ class Workflow:
         self.max_iterations = max_iterations
         self.enable_logging = enable_logging
         
-        if enable_logging:
-            logging.basicConfig(level=logging.INFO)
-            self.logger = logging.getLogger(f"Workflow-{name}")
+        logging.basicConfig(level=logging.INFO)
+        self.logger = logging.getLogger(f"Workflow-{name}")
+        self.logger.setLevel(logging.WARNING) 
+        
+        self._log(f"\n{BOLD}{PURPLE}🌊 WORKFLOW INITIALIZED: {name.upper()}{RESET}")
+        self._log(f"{CYAN}   📋 Mode: {mode.upper()}{RESET}")
+        self._log(f"{CYAN}   👥 Agents: {len(agents)} workers{RESET}")
+        
+        if manager_agent:
+            self._log(f"{YELLOW}   👨‍💼 Manager: {manager_agent.name}{RESET}")
+        
+        self._log(f"{GREEN}   ✅ Workflow ready for execution{RESET}\n")
 
     def _log(self, message: str, level: str = "info"):
-        """Internal logging method."""
-        if self.enable_logging:
+        """
+        Log workflow-specific messages with console output.
+        
+        Args:
+            message (str): Message to log
+            level (str): Logging level (info, warning, error)
+        """
+        print(message)
+        if hasattr(self, 'logger'):
             getattr(self.logger, level)(message)
 
     def _run_sequential(self, input_data: str) -> WorkflowResult:
         """
-        Executes agents sequentially, passing output from one agent to the next.
+        Execute agents sequentially, passing output from one to next.
+        
+        Args:
+            input_data (str): Initial input for the workflow
+            
+        Returns:
+            WorkflowResult: Result of sequential execution
         """
-        self._log(f"Starting sequential workflow with {len(self.agents)} agents")
+        self._log(f"{BOLD}{BLUE}🔄 SEQUENTIAL EXECUTION STARTED{RESET}")
+        self._log(f"{CYAN}   📊 Pipeline: {len(self.agents)} agents{RESET}")
         
         agent_outputs = []
         current_input = input_data
         
         try:
             for i, agent in enumerate(self.agents):
-                self._log(f"{blue}Executing agent {i+1}/{len(self.agents)}: {agent.name}{reset}")
+                self._log(f"\n{BOLD}{PURPLE}{'='*60}{RESET}")
+                self._log(f"{BOLD}{PURPLE}🎯 STEP {i+1}/{len(self.agents)}: {agent.name.upper()}{RESET}")
+                self._log(f"{BOLD}{PURPLE}{'='*60}{RESET}")
 
                 agent_output = agent.run(current_input)
+                
                 agent_outputs.append({
                     "agent_name": agent.name,
                     "input": current_input,
@@ -92,9 +138,10 @@ class Workflow:
                 })
                 
                 current_input = agent_output
+                self._log(f"{GREEN}✅ Step {i+1} completed successfully{RESET}")
 
-                self._log(f"{blue}Agent {agent.name} completed. Output: {agent_output}{reset}")
-
+            self._print_workflow_result(current_input, True)
+            
             return WorkflowResult(
                 success=True,
                 final_output=current_input,
@@ -102,7 +149,8 @@ class Workflow:
             )
             
         except Exception as e:
-            self._log(f"{blue}Error in sequential workflow: {str(e)}{reset}", "error")
+            error_msg = f"Sequential workflow failed: {str(e)}"
+            self._log(f"{RED}❌ WORKFLOW ERROR: {error_msg}{RESET}", "error")
             return WorkflowResult(
                 success=False,
                 final_output="",
@@ -112,9 +160,17 @@ class Workflow:
 
     def _run_supervised(self, input_data: str) -> WorkflowResult:
         """
-        Executes agents under supervision of a manager agent that decides the flow.
+        Execute agents under manager supervision with dynamic routing.
+        
+        Args:
+            input_data (str): Initial input for the workflow
+            
+        Returns:
+            WorkflowResult: Result of supervised execution
         """
-        self._log(f"{blue}Starting supervised workflow with manager: {self.manager_agent.name}{reset}")
+        self._log(f"{BOLD}{BLUE}🎯 SUPERVISED EXECUTION STARTED{RESET}")
+        self._log(f"{YELLOW}   👨‍💼 Manager: {self.manager_agent.name}{RESET}")
+        self._log(f"{CYAN}   🔄 Max iterations: {self.max_iterations}{RESET}")
         
         agent_outputs = []
         iteration = 0
@@ -128,20 +184,24 @@ class Workflow:
         try:
             while iteration < self.max_iterations:
                 iteration += 1
-                self._log(f"{blue}Supervision iteration {iteration}/{self.max_iterations}{reset}")
+                self._log(f"\n{BOLD}{PURPLE}{'='*60}{RESET}")
+                self._log(f"{BOLD}{PURPLE}🔍 SUPERVISION ROUND {iteration}/{self.max_iterations}{RESET}")
+                self._log(f"{BOLD}{PURPLE}{'='*60}{RESET}")
                 
                 manager_prompt = self._create_manager_prompt(current_context)
                 manager_decision = self.manager_agent.run(manager_prompt)
                 
                 decision = self._parse_manager_decision(manager_decision)
-
-                self._log(f"{blue}Manager decision: {decision}{reset}")
+                self._log(f"{CYAN}🤔 Manager Decision: {decision.get('action', 'unknown').upper()}{RESET}")
                 
                 if decision["action"] == "complete":
-                    self._log(f"{blue}Manager decided to complete the workflow{reset}")
+                    self._log(f"{GREEN}🏁 Manager completed the workflow{RESET}")
+                    final_answer = decision.get("final_answer", manager_decision)
+                    self._print_workflow_result(final_answer, True)
+                    
                     return WorkflowResult(
                         success=True,
-                        final_output=decision.get("final_answer", manager_decision),
+                        final_output=final_answer,
                         agent_outputs=agent_outputs
                     )
                 
@@ -149,12 +209,12 @@ class Workflow:
                     agent_name = decision.get("agent_name")
                     task_input = decision.get("task_input", input_data)
                     
-                    # Find and execute the specified agent
                     target_agent = self._find_agent_by_name(agent_name)
                     if target_agent:
-                        self._log(f"{blue}Manager delegating to agent: {agent_name}{reset}")
+                        self._log(f"{CYAN}👉 Delegating to: {agent_name}{RESET}")
                         
                         agent_output = target_agent.run(task_input)
+                        
                         agent_outputs.append({
                             "agent_name": agent_name,
                             "input": task_input,
@@ -162,8 +222,6 @@ class Workflow:
                             "iteration": iteration,
                             "delegated_by": "manager"
                         })
-
-                        self._log(f"{blue}Agent {agent_name} completed. Output: {agent_output}{reset}")
                         
                         current_context["completed_tasks"].append({
                             "agent": agent_name,
@@ -172,15 +230,20 @@ class Workflow:
                             "iteration": iteration
                         })
                         current_context["current_status"] = f"completed_task_with_{agent_name}"
+                        
+                        self._log(f"{GREEN}✅ Delegation completed{RESET}")
                     else:
-                        self._log(f"{blue}Agent {agent_name} not found{reset}", "warning")
+                        self._log(f"{RED}❌ Agent '{agent_name}' not found{RESET}", "error")
                         current_context["current_status"] = f"agent_{agent_name}_not_found"
                 
                 else:
-                    self._log(f"{blue}Unknown manager action: {decision.get('action')}{reset}", "warning")
+                    self._log(f"{YELLOW}⚠️  Unknown manager action: {decision.get('action')}{RESET}", "warning")
                     current_context["current_status"] = "unknown_action"
 
-            self._log(f"{blue}Max iterations reached in supervised mode{reset}", "warning")
+            error_msg = "Maximum iterations reached"
+            self._log(f"{RED}⏰ WORKFLOW TIMEOUT: {error_msg}{RESET}", "warning")
+            self._print_workflow_result("Workflow incomplete: maximum iterations reached", False)
+            
             return WorkflowResult(
                 success=False,
                 final_output="Workflow incomplete: maximum iterations reached",
@@ -189,7 +252,8 @@ class Workflow:
             )
             
         except Exception as e:
-            self._log(f"{blue}Error in supervised workflow: {str(e)}", "error")
+            error_msg = f"Supervised workflow failed: {str(e)}"
+            self._log(f"{RED}❌ WORKFLOW ERROR: {error_msg}{RESET}", "error")
             return WorkflowResult(
                 success=False,
                 final_output="",
@@ -197,8 +261,34 @@ class Workflow:
                 error=str(e)
             )
 
+    def _print_workflow_result(self, final_output: str, success: bool):
+        """
+        Print beautifully formatted workflow result.
+        
+        Args:
+            final_output (str): Final workflow output
+            success (bool): Whether workflow succeeded
+        """
+        color = GREEN if success else RED
+        status = "SUCCESS" if success else "FAILED"
+        icon = "🎉" if success else "💥"
+        
+        self._log(f"\n{BOLD}{color}{'='*80}{RESET}")
+        self._log(f"{BOLD}{color}{icon} WORKFLOW '{self.name.upper()}' {status} {icon}{RESET}")
+        self._log(f"{BOLD}{color}{'='*80}{RESET}")
+        self._log(f"{WHITE}{final_output}{RESET}")
+        self._log(f"{BOLD}{color}{'='*80}{RESET}\n")
+
     def _create_manager_prompt(self, context: Dict[str, Any]) -> str:
-        """Creates a prompt for the manager agent based on current context."""
+        """
+        Create decision prompt for manager agent.
+        
+        Args:
+            context (Dict[str, Any]): Current workflow execution context
+            
+        Returns:
+            str: Formatted manager prompt
+        """
         return f"""
 You are a workflow manager coordinating multiple AI agents. Your job is to decide what should happen next.
 
@@ -230,7 +320,15 @@ Choose wisely based on the context and completed tasks.
 """
 
     def _parse_manager_decision(self, decision_text: str) -> Dict[str, Any]:
-        """Parses the manager's decision from text response."""
+        """
+        Parse manager's decision from response text.
+        
+        Args:
+            decision_text (str): Manager's response text
+            
+        Returns:
+            Dict[str, Any]: Parsed decision dictionary
+        """
         try:
             decision_json = self._extract_json(decision_text)
             if decision_json and isinstance(decision_json, dict):
@@ -244,7 +342,15 @@ Choose wisely based on the context and completed tasks.
         return {"action": "unknown", "raw_response": decision_text}
 
     def _extract_json(self, text: str) -> dict | None:
-        """Extracts JSON from text (reusing the Agent's method)."""
+        """
+        Extract JSON object from text response.
+        
+        Args:
+            text (str): Text containing JSON
+            
+        Returns:
+            dict | None: Extracted JSON or None if not found
+        """
         try:
             text = text.strip()
             if text.startswith("```"):
@@ -255,7 +361,15 @@ Choose wisely based on the context and completed tasks.
             return None
 
     def _find_agent_by_name(self, name: str) -> Optional[Agent]:
-        """Finds an agent by name."""
+        """
+        Find agent by name in workflow.
+        
+        Args:
+            name (str): Agent name to search for
+            
+        Returns:
+            Optional[Agent]: Found agent or None
+        """
         for agent in self.agents:
             if agent.name == name:
                 return agent
@@ -263,45 +377,67 @@ Choose wisely based on the context and completed tasks.
     
     def run(self, input_data: str) -> WorkflowResult:
         """
-        Executes the workflow based on the configured mode.
+        Execute the complete workflow based on configured mode.
         
-        ## Params:
-        - input_data (str): The initial input to the workflow.
-        
-        ## Returns:
-        - WorkflowResult: Contains success status, final output, and detailed agent outputs.
+        Args:
+            input_data (str): Initial input for the workflow
+            
+        Returns:
+            WorkflowResult: Complete workflow execution result with success status, outputs, and errors
         """
-        self._log(f"{blue}Starting workflow '{self.name}' in {self.mode.value} mode{reset}")
+        self._log(f"\n{BOLD}{PURPLE}🚀 WORKFLOW EXECUTION: {self.name.upper()}{RESET}")
+        self._log(f"{BLUE}📝 Input: {input_data[:100]}{'...' if len(input_data) > 100 else ''}{RESET}")
+        self._log(f"{BLUE}🔧 Mode: {self.mode.value.upper()}{RESET}")
         
         if self.mode == WorkflowMode.SEQUENTIAL:
             return self._run_sequential(input_data)
         elif self.mode == WorkflowMode.SUPERVISED:
             return self._run_supervised(input_data)
         else:
+            error_msg = f"Unsupported workflow mode: {self.mode.value}"
+            self._log(f"{RED}❌ CONFIGURATION ERROR: {error_msg}{RESET}", "error")
             return WorkflowResult(
                 success=False,
                 final_output="",
                 agent_outputs=[],
-                error=f"Unsupported workflow mode: {self.mode.value}"
+                error=error_msg
             )
 
     def add_agent(self, agent: Agent):
-        """Adds an agent to the workflow."""
+        """
+        Add an agent to the workflow.
+        
+        Args:
+            agent (Agent): Agent instance to add
+        """
         if agent not in self.agents:
             self.agents.append(agent)
-            self._log(f"{blue}Added agent: {agent.name}{reset}")
+            self._log(f"{GREEN}➕ Agent added: {agent.name}{RESET}")
 
     def remove_agent(self, agent_name: str) -> bool:
-        """Removes an agent from the workflow by name."""
+        """
+        Remove an agent from workflow by name.
+        
+        Args:
+            agent_name (str): Name of agent to remove
+            
+        Returns:
+            bool: True if agent was found and removed
+        """
         for i, agent in enumerate(self.agents):
             if agent.name == agent_name:
                 removed_agent = self.agents.pop(i)
-                self._log(f"{blue}Removed agent: {removed_agent.name}{reset}")
+                self._log(f"{RED}➖ Agent removed: {removed_agent.name}{RESET}")
                 return True
         return False
     
     def get_workflow_summary(self) -> Dict[str, Any]:
-        """Returns a summary of the workflow configuration."""
+        """
+        Get comprehensive workflow configuration summary.
+        
+        Returns:
+            Dict[str, Any]: Dictionary containing workflow configuration details
+        """
         return {
             "name": self.name,
             "mode": self.mode.value,

@@ -1,5 +1,4 @@
 from tvara.core import Agent, Workflow, Prompt
-from tvara.tools import DateTool, WebSearchTool
 import os
 from dotenv import load_dotenv
 
@@ -12,7 +11,8 @@ researcher_agent = Agent(
     prompt=Prompt(
         raw_prompt="You are a researcher tasked with gathering information on a specific topic. Use the tools available to you to find relevant information and summarize it.",
     ),
-    tools=[WebSearchTool(api_key=os.getenv("TAVILY_API_KEY")), DateTool()]
+    composio_api_key=os.getenv("COMPOSIO_API_KEY"),
+    composio_toolkits=["COMPOSIO_SEARCH"]
 )
 
 blog_agent = Agent(
@@ -31,7 +31,4 @@ my_workflow = Workflow(
     max_iterations=3,
 )
 
-# result = my_workflow.run("Write a blog post under the name of Tvara Community about the latest advancements in AI research.")
-
-# print(f"Workflow Result: {result.final_output}")
-# print(f"Workflow summary: {my_workflow.get_workflow_summary()}")
+result = my_workflow.run("Write a blog post under the name of Tvara Community about the latest advancements in AI research.").final_output

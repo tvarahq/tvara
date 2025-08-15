@@ -3,6 +3,10 @@
   <img src="assets/tvara_full_logo.png" alt="Tvara" />
 </p>
 
+[![Python 3.9+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/tvarahq/tvara/blob/main/LICENSE)
+[![Website](https://img.shields.io/badge/Website-Tvara-purple.svg)](https://tvarahq.com)
+
 **Tvara** is a powerful Python SDK for building intelligent, multi-agent AI workflows with minimal boilerplate. Unlike LangChain or LangGraph, Tvara emphasizes plug-and-play simplicity—offering prebuilt connectors (e.g., GitHub, Slack), tool abstractions (e.g., web search, code execution), and native support for both sequential and supervised agent coordination.
 
 Whether you're building a personal automation, customer support bot, or a full-fledged agentic app, Tvara lets you focus on what your agents do, not how to wire them together.
@@ -12,25 +16,21 @@ Whether you're building a personal automation, customer support bot, or a full-f
 ## ✨ Features
 
 - **Smart AI Agents** - Create agents with different models (Gemini, OpenAI, etc.)
-- **Built-in Tools** - Web search, code execution, calculations, date/time utilities
-- **External Connectors** - GitHub, Slack integrations with more coming
+- **External Connectors** - GitHub, Slack integrations, Gmail and 10000+ more
 - **Multi-Agent Workflows** - Sequential and supervised agent coordination
 - **Flexible Prompting** - Template-based and raw prompt support
 - **Easy Integration** - Simple API with comprehensive error handling
 - **Extensible Architecture** - Easy to add custom tools and connectors
 
-> * Coming soon: Better workflow orchestration, multi-step agent execution, larger repo of connectors, role-based behavior, and a visual interface for building agents and workflows.
+> * Coming soon: Better workflow orchestration, multi-step agent execution, deployable options, role-based behavior, and a visual interface for building agents and workflows.
 
 ---
 
 ## Roadmap
-- Connectors for SQL databases, cloud storage, APIs, and more
-- Workflow orchestration with multi-step agent execution
-- Multi-agent coordination and role-based behavior
 - Visual interface for building and deploying agents
 - Improved observability and logs for debugging
+- Deployable agents and workflows
 
-Stay tuned for the official V1 launch, where these features will be included as part of our stable release.
 
 ## 🚀 Quick Start
 
