@@ -241,6 +241,17 @@ MODEL_API_KEY=your_gemini_or_openai__or_claude_key
 COMPOSIO_API_KEY=your_composio_api_key
 ```
 
+### Get Composio API Key
+To use tools and connectors with the SDK, you’ll need a Composio API key.
+
+- Go to the Composio Developer Portal.
+- Sign up or log in with your account.
+- Navigate to Dashboard → API Keys.
+- Click Generate New Key.
+- Copy the generated key.
+- Paste it into your .env file as:
+  `COMPOSIO_API_KEY=your_composio_api_key`
+
 ### Authentication Caching
 
 Tvara includes smart authentication caching to avoid repeated OAuth flows:
