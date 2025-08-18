@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "tvara"
-version = "1.0.0"
+version = "1.0.1"
 description = "A Python package for Tvara, a tool for automating workflows."
 authors = ["Team Tvara <team@tvarahq.com>"]
 license = "MIT"
