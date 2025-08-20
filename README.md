@@ -1,6 +1,6 @@
 # Tvara
 <p align="center">
-  <img src="https://raw.githubusercontent.com/tvarahq/tvara/refs/heads/main/docs/images/logo.png" alt="Tvara" />
+  <img src="https://raw.githubusercontent.com/tvarahq/tvara/refs/heads/main/docs/images/updated_logo.png" alt="Tvara" />
 </p>
 
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
