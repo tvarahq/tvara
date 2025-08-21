@@ -2,6 +2,7 @@ from typing import List, Optional, Dict, Any
 from .prompt import Prompt
 from tvara.models import ModelFactory
 from tvara.tools.ComposioTool import ComposioToolWrapper
+from tvara.tools.CustomTool import CustomToolWrapper
 from tvara.utils.auth_cache import AuthCache
 import json
 import re
@@ -30,6 +31,7 @@ class Agent:
         api_key: str,
         composio_api_key: Optional[str] = None,
         composio_toolkits: Optional[List[str]] = None,
+        custom_tools: Optional[List[Any]] = None,
         prompt: Optional[Prompt] = None,
         max_iterations: int = 10,
         user_id: str = "default",
@@ -77,8 +79,17 @@ class Agent:
             self.composio_client = self._initialize_composio_client(composio_api_key)
             self.tools = self._setup_toolkits(composio_toolkits)
             self._log(f"{GREEN}✅ Composio integration enabled with {len(self.tools)} tools{RESET}")
+
+        if custom_tools:
+            for tool in custom_tools:
+                if isinstance(tool, CustomToolWrapper):
+                    self.tools.append(tool)
+                else:
+                    raise ValueError("Custom tools must be instances of CustomToolWrapper")
+            self._log(f"{GREEN}✅ Added {len(custom_tools)} custom tools{RESET}")
         else:
             self._log(f"{YELLOW}⚡ Running in basic mode (no external tools){RESET}")
+       
 
         self.prompt = prompt or Prompt(template_name="agent_prompt_template")
         self.prompt.set_tools(self.tools)
