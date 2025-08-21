@@ -20,6 +20,10 @@ anthropic = "^0.61.0"
 tavily-python = "^0.7.10"
 composio = "0.8.0"
 pydantic = "2.11.7"
+uvicorn = "^0.35.0"
+fastapi = "^0.116.0"
+click = "^8.0.0"
+python-dotenv = "^1.0.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^8.4.1"
