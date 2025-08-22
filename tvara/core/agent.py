@@ -4,6 +4,7 @@ from tvara.models import ModelFactory
 from tvara.tools.ComposioTool import ComposioToolWrapper
 from tvara.tools.CustomTool import CustomToolWrapper
 from tvara.utils.auth_cache import AuthCache
+from tvara.utils.auth_token_manager import AuthTokenManager
 import json
 import re
 import logging
@@ -36,7 +37,8 @@ class Agent:
         max_iterations: int = 10,
         user_id: str = "default",
         cache_auth: bool = True,
-        cache_validity_minutes: int = 10
+        cache_validity_minutes: int = 10,
+        non_interactive_auth: bool = False
     ):
         """
         Initialize an AI Agent with optional tool integration and auth caching.
@@ -49,9 +51,10 @@ class Agent:
             composio_toolkits (Optional[List[str]]): List of Composio toolkit names to enable
             prompt (Optional[Prompt]): Custom prompt template
             max_iterations (int): Maximum tool usage iterations
-            user_id (str): User identifier for tool authorization
+            user_id (str): User identifier for Composio tools
             cache_auth (bool): Enable authentication caching
-            cache_validity_minutes (int): Cache validity in minutes
+            cache_validity_minutes (int): How long to cache authentication (in minutes)
+            non_interactive_auth (bool): Enable non-interactive authentication mode for deployments
         """
         if not model:
             raise ValueError("Model must be specified.")
@@ -63,12 +66,14 @@ class Agent:
         self.api_key = api_key
         self.max_iterations = max_iterations
         self.user_id = user_id
+        self.non_interactive_auth = non_interactive_auth
         
         self.logger = logging.getLogger(f"Agent-{name}")
         self.logger.handlers.clear()
         self.logger.propagate = False
         
         self.auth_cache = AuthCache(cache_validity_minutes=cache_validity_minutes) if cache_auth else None
+        self.auth_token_manager = AuthTokenManager() if non_interactive_auth else None
         self.tools = []
         self.composio_client = None
         
@@ -127,9 +132,26 @@ class Agent:
         return toolkit.upper() in no_auth_toolkits
 
     def _setup_toolkits(self, toolkits: Optional[List[str]]) -> List[ComposioToolWrapper]:
-        """Setup and authorize Composio toolkits with smart caching."""
+        """Setup and authorize Composio toolkits with smart caching and non-interactive support."""
         if not toolkits:
             return []
+        
+        # Validate authentication setup for non-interactive mode
+        if self.non_interactive_auth and self.auth_token_manager:
+            no_auth_toolkits = [
+                "COMPOSIO_SEARCH", 
+                "CODEINTERPRETER", 
+                "ENTELLIGENCE",
+                "HACKERNEWS",
+                "TEXT_TO_PDF",
+                "WEATHERMAP"
+            ]
+            
+            validation = self.auth_token_manager.validate_environment_setup(toolkits, no_auth_toolkits)
+            if not validation["valid"]:
+                error_msg = f"❌ Non-interactive authentication failed. Missing tokens for: {', '.join(validation['missing_tokens'])}\n\n"
+                error_msg += validation.get("instructions", "")
+                raise ValueError(error_msg)
         
         all_tools = []
         self._log(f"{CYAN}   🔧 Setting up toolkits...{RESET}")
@@ -138,37 +160,19 @@ class Agent:
             self._log(f"{BLUE}   📦 {toolkit}: {RESET}")
 
             if not self._is_no_auth_toolkit(toolkit):
+                # Check cache first
                 if self.auth_cache and self.auth_cache.is_toolkit_cached(toolkit, self.user_id):
                     print(f"{GREEN}Using cached auth ✨{RESET}")
+                elif self.non_interactive_auth and self.auth_token_manager:
+                    # Handle non-interactive authentication
+                    self._handle_non_interactive_auth(toolkit)
                 else:
-                    try:
-                        connection_request = self.composio_client.toolkits.authorize(
-                            user_id=self.user_id, 
-                            toolkit=toolkit.lower()
-                        )
-                        
-                        print(f"{YELLOW}Auth required{RESET}")
-                        print(f"{CYAN}      🔗 Visit: {connection_request.redirect_url}{RESET}")
-                        print(f"{YELLOW}      ⏳ Waiting for authorization...{RESET}")
-                        
-                        connection_request.wait_for_connection()
-                        print(f"{GREEN}      ✅ Authorized{RESET}")
-                        
-                        if self.auth_cache:
-                            self.auth_cache.cache_toolkit_auth(toolkit, self.user_id)
-                            print(f"{CYAN}      💾 Auth cached for 10 minutes{RESET}")
-                        
-                    except Exception as e:
-                        if 'already authorized' in str(e).lower():
-                            print(f"{GREEN}Already authorized{RESET}")
-                            if self.auth_cache:
-                                self.auth_cache.cache_toolkit_auth(toolkit, self.user_id)
-                        else:
-                            print(f"{RED}❌ Failed: {e}{RESET}")
-                            continue
+                    # Handle interactive authentication
+                    self._handle_interactive_auth(toolkit)
             else:
                 print(f"{GREEN}Ready (no auth required){RESET}")
             
+            # Get and setup toolkit tools
             try:
                 toolkit_tools = self.composio_client.tools.get(
                     user_id=self.user_id,
@@ -210,6 +214,66 @@ class Agent:
                 self._log(f"{RED}      ❌ Toolkit setup failed: {e}{RESET}")
         
         return all_tools
+
+    def _handle_non_interactive_auth(self, toolkit: str):
+        """Handle non-interactive authentication using environment tokens."""
+        token = self.auth_token_manager.get_toolkit_token(toolkit)
+        if not token:
+            raise ValueError(f"No authentication token found for {toolkit} in non-interactive mode")
+        
+        try:
+            # Create auth config with the token
+            auth_config_id = self.auth_token_manager.create_auth_config(
+                self.composio_client, toolkit, token
+            )
+            
+            if not auth_config_id:
+                raise ValueError(f"Failed to create auth config for {toolkit}")
+            
+            # Create connected account
+            success = self.auth_token_manager.create_connected_account(
+                self.composio_client, self.user_id, auth_config_id, toolkit
+            )
+            
+            if success:
+                print(f"{GREEN}Connected via environment token ✨{RESET}")
+                # Cache the successful authentication
+                if self.auth_cache:
+                    self.auth_cache.cache_toolkit_auth(toolkit, self.user_id)
+                    print(f"{CYAN}      💾 Auth cached for 10 minutes{RESET}")
+            else:
+                raise ValueError(f"Failed to establish connection for {toolkit}")
+                
+        except Exception as e:
+            raise ValueError(f"Non-interactive authentication failed for {toolkit}: {e}")
+
+    def _handle_interactive_auth(self, toolkit: str):
+        """Handle interactive authentication with browser redirects."""
+        try:
+            connection_request = self.composio_client.toolkits.authorize(
+                user_id=self.user_id, 
+                toolkit=toolkit.lower()
+            )
+            
+            print(f"{YELLOW}Auth required{RESET}")
+            print(f"{CYAN}      🔗 Visit: {connection_request.redirect_url}{RESET}")
+            print(f"{YELLOW}      ⏳ Waiting for authorization...{RESET}")
+            
+            connection_request.wait_for_connection()
+            print(f"{GREEN}      ✅ Authorized{RESET}")
+            
+            if self.auth_cache:
+                self.auth_cache.cache_toolkit_auth(toolkit, self.user_id)
+                print(f"{CYAN}      💾 Auth cached for 10 minutes{RESET}")
+            
+        except Exception as e:
+            if 'already authorized' in str(e).lower():
+                print(f"{GREEN}Already authorized{RESET}")
+                if self.auth_cache:
+                    self.auth_cache.cache_toolkit_auth(toolkit, self.user_id)
+            else:
+                print(f"{RED}❌ Failed: {e}{RESET}")
+                raise
 
     def run(self, input_data: str) -> str:
         """Process user input and generate response using tools if needed."""

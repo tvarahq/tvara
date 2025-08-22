@@ -239,6 +239,12 @@ MODEL_API_KEY=your_gemini_or_openai__or_claude_key
 
 # Required for tools: Composio API Key
 COMPOSIO_API_KEY=your_composio_api_key
+
+# For server deployments with non-interactive authentication
+COMPOSIO_AUTH_GITHUB=your_github_token
+COMPOSIO_AUTH_SLACK=your_slack_token
+COMPOSIO_AUTH_GMAIL=your_gmail_token
+# Add more as needed for your toolkits
 ```
 
 ### Get Composio API Key
@@ -252,20 +258,77 @@ To use tools and connectors with the SDK, you’ll need a Composio API key.
 - Paste it into your .env file as:
   `COMPOSIO_API_KEY=your_composio_api_key`
 
+### Server Deployment Authentication
+
+For server deployments where interactive authentication isn't possible, Tvara supports non-interactive authentication using environment variables.
+
+#### Setting Up Environment Variables
+
+Add authentication tokens to your environment:
+
+```bash
+# Format: COMPOSIO_AUTH_{TOOLKIT_NAME}
+export COMPOSIO_AUTH_GITHUB="your_github_token"
+export COMPOSIO_AUTH_SLACK="your_slack_token" 
+export COMPOSIO_AUTH_GMAIL="your_gmail_token"
+
+# Alternative formats also supported:
+export COMPOSIO_GITHUB_TOKEN="your_github_token"
+export GITHUB_TOKEN="your_github_token"
+```
+
+#### Deploying with Non-Interactive Mode
+
+Use the `--non-interactive` flag to enable non-interactive authentication:
+
+```bash
+# Deploy agent with non-interactive authentication
+tvara run my_agent.py --non-interactive --port 8000 --host 0.0.0.0
+
+# Deploy workflow 
+tvara run my_workflow.py --non-interactive --port 8080
+
+# Example with other options
+tvara run agents/github_agent.py --non-interactive --host 0.0.0.0 --port 3000
+```
+
+#### Getting Authentication Tokens
+
+1. **Interactive Setup (Development)**: Run authentication interactively first to obtain tokens
+2. **Token Extraction**: Check `~/.composio` directory for tokens after interactive setup  
+3. **API Management**: Use Composio's API for programmatic token management
+
+#### Error Handling
+
+If required tokens are missing, Tvara will provide detailed error messages with setup instructions.
+
 ### Authentication Caching
 
 Tvara includes smart authentication caching to avoid repeated OAuth flows:
 
 ```python
-# Enable caching (default)
+# Interactive mode (default) - for development
 agent = Agent(
-    name="Cached Agent",
+    name="Development Agent",
     model="gemini-2.5-flash",
     api_key=os.getenv("MODEL_API_KEY"),
     composio_api_key=os.getenv("COMPOSIO_API_KEY"),
     composio_toolkits=["github", "slack"],
     cache_auth=True,  # Enable caching
     cache_validity_minutes=30,  # Cache for 30 minutes
+    non_interactive_auth=False,  # Interactive mode (default)
+)
+
+# Non-interactive mode - for server deployments
+agent = Agent(
+    name="Production Agent",
+    model="gemini-2.5-flash",
+    api_key=os.getenv("MODEL_API_KEY"),
+    composio_api_key=os.getenv("COMPOSIO_API_KEY"),
+    composio_toolkits=["github", "slack"],
+    cache_auth=True,
+    cache_validity_minutes=60,
+    non_interactive_auth=True,  # Enable non-interactive mode
 )
 
 # Check cache status

@@ -24,9 +24,11 @@ class ExecutionResponse(BaseModel):
     error: Optional[str] = None
 
 class TvaraServer:
-    def __init__(self, file_path: str):
+    def __init__(self, file_path: str, non_interactive: bool = False):
         self.file_path = file_path
+        self.non_interactive = non_interactive
         self.executable = self._load_executable(file_path)
+        self._configure_non_interactive_mode()
         self.execution_type = self._determine_type()
         self.app = FastAPI(
             title="Tvara Server",
@@ -82,6 +84,34 @@ class TvaraServer:
             )
         
         return candidates[0]
+
+    def _configure_non_interactive_mode(self):
+        """Configure the loaded executable for non-interactive authentication if requested."""
+        if not self.non_interactive:
+            return
+            
+        if hasattr(self.executable, 'non_interactive_auth'):
+            # For agents, directly set the non_interactive_auth attribute
+            self.executable.non_interactive_auth = True
+            # Also create auth_token_manager if it doesn't exist
+            if not hasattr(self.executable, 'auth_token_manager') or self.executable.auth_token_manager is None:
+                from tvara.utils.auth_token_manager import AuthTokenManager
+                self.executable.auth_token_manager = AuthTokenManager()
+        elif hasattr(self.executable, 'agents') and isinstance(self.executable.agents, list):
+            # For workflows, configure all agents in the workflow
+            from tvara.utils.auth_token_manager import AuthTokenManager
+            for agent in self.executable.agents:
+                if hasattr(agent, 'non_interactive_auth'):
+                    agent.non_interactive_auth = True
+                    if not hasattr(agent, 'auth_token_manager') or agent.auth_token_manager is None:
+                        agent.auth_token_manager = AuthTokenManager()
+            # Also configure manager agent if it exists
+            if hasattr(self.executable, 'manager_agent') and self.executable.manager_agent:
+                manager = self.executable.manager_agent
+                if hasattr(manager, 'non_interactive_auth'):
+                    manager.non_interactive_auth = True
+                    if not hasattr(manager, 'auth_token_manager') or manager.auth_token_manager is None:
+                        manager.auth_token_manager = AuthTokenManager()
 
     def _determine_type(self):
         """Determine if the executable is an Agent or Workflow"""
@@ -211,7 +241,8 @@ def cli():
 @click.option('--host', '-h', default='127.0.0.1', help='Host to bind the server to')
 @click.option('--reload', is_flag=True, help='Enable auto-reload for development')
 @click.option('--workers', default=1, help='Number of worker processes')
-def run(file_path: str, port: int, host: str, reload: bool, workers: int):
+@click.option('--non-interactive', is_flag=True, help='Enable non-interactive authentication mode for server deployments')
+def run(file_path: str, port: int, host: str, reload: bool, workers: int, non_interactive: bool):
     """Run an agent or workflow as a REST API server
     
     FILE_PATH: Path to Python file containing Agent or Workflow instance
@@ -220,6 +251,14 @@ def run(file_path: str, port: int, host: str, reload: bool, workers: int):
         tvara run my_agent.py --port 8000
         tvara run my_workflow.py --host 0.0.0.0 --port 8080
         tvara run agents/slack_agent.py --reload
+        tvara run my_agent.py --non-interactive  # For server deployments
+    
+    Authentication for Server Deployments:
+        Use --non-interactive flag to enable non-interactive authentication.
+        Set environment variables for toolkit authentication:
+        export COMPOSIO_AUTH_GITHUB="your_github_token"
+        export COMPOSIO_AUTH_SLACK="your_slack_token"
+        etc.
     """
     try:
         if not os.path.exists(file_path):
@@ -227,12 +266,14 @@ def run(file_path: str, port: int, host: str, reload: bool, workers: int):
             sys.exit(1)
         
         try:
-            server = TvaraServer(file_path)
+            server = TvaraServer(file_path, non_interactive)
         except Exception as e:
             click.echo(f"❌ Error loading {file_path}: {e}", err=True)
             sys.exit(1)
         
         click.echo(f"🚀 Starting Tvara server...")
+        if non_interactive:
+            click.echo(f"🔒 Non-interactive mode enabled for server deployment")
         # click.echo(f"📁 File: {file_path}")
         # click.echo(f"🤖 Type: {server.execution_type.title()}")
         # click.echo(f"📛 Name: {getattr(server.executable, 'name', 'Unknown')}")
