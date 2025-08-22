@@ -353,13 +353,12 @@ def run(target: str, port: int, host: str, reload: bool, workers: int, productio
         
         # Apply production mode defaults
         if production:
-            if workers == 1:  # Only override if not explicitly set
-                workers = 4
             if host == '127.0.0.1':  # Only override if not explicitly set
                 host = '0.0.0.0'
             log_level = 'info'
             reload = False  # Disable reload in production
-            click.echo(f"🏭 Production mode enabled (workers: {workers}, host: {host})")
+            workers = 1  # Keep workers at 1 for now due to uvicorn limitations
+            click.echo(f"🏭 Production mode enabled (host: {host}, log-level: {log_level})")
         
         try:
             server = TvaraServer(file_path)
@@ -440,7 +439,7 @@ uvicorn.run(
                 host=host,
                 port=port,
                 reload=reload,
-                workers=workers if not reload else 1,
+                workers=1 if reload else workers,  # Fixed: workers > 1 requires app as string 
                 log_level=log_level
             )
         
@@ -510,6 +509,41 @@ def list(path, debug):
     click.echo("   tvara run <name>           # Run by name")
     click.echo("   tvara run <file.py>        # Run by file path")
     click.echo("   tvara run <name> --production --workers 4")
+
+@cli.command()
+def ps():
+    """Show running Tvara processes"""
+    import subprocess
+    try:
+        # Find processes with 'tvara' and 'uvicorn' in command line
+        result = subprocess.run(['ps', 'aux'], capture_output=True, text=True)
+        lines = result.stdout.split('\n')
+        
+        tvara_processes = []
+        for line in lines:
+            if ('tvara' in line or 'uvicorn' in line) and 'python' in line and 'ps aux' not in line:
+                tvara_processes.append(line)
+        
+        if tvara_processes:
+            click.echo("🔍 Running Tvara processes:")
+            click.echo()
+            for proc in tvara_processes:
+                parts = proc.split()
+                if len(parts) >= 11:
+                    pid = parts[1]
+                    cpu = parts[2]
+                    mem = parts[3]
+                    cmd = ' '.join(parts[10:])[:80] + '...' if len(' '.join(parts[10:])) > 80 else ' '.join(parts[10:])
+                    click.echo(f"   PID: {pid:<6} CPU: {cpu}% MEM: {mem}%")
+                    click.echo(f"   CMD: {cmd}")
+                    click.echo()
+            
+            click.echo("💡 Use 'kill <PID>' to stop a process")
+        else:
+            click.echo("🔍 No running Tvara processes found")
+            
+    except Exception as e:
+        click.echo(f"❌ Error checking processes: {e}", err=True)
 
 @cli.command()
 @click.argument('target')
