@@ -71,3 +71,35 @@ def test_hierarchical_workflow_validation():
             mode="hierarchical",
             manager_agent=manager_without_subs
         )
+
+def test_hierarchical_workflow_prompt_generation():
+    """Test hierarchical workflow prompt generation."""
+    # Create a simple hierarchy  
+    leaf_agent = Agent(name="LeafAgent", model="test-model", api_key="test-key")
+    supervisor = Agent(name="SupervisorAgent", model="test-model", api_key="test-key", sub_agents=[leaf_agent])
+    
+    workflow = Workflow(
+        name="Test Workflow",
+        agents=[],
+        mode="hierarchical",
+        manager_agent=supervisor
+    )
+    
+    # Test hierarchical prompt creation
+    context = {
+        "original_input": "Test task",
+        "completed_tasks": [],
+        "current_supervisor": supervisor,
+        "hierarchy_path": ["SupervisorAgent"],
+        "current_status": "starting"
+    }
+    
+    prompt = workflow._create_hierarchical_manager_prompt(context)
+    
+    # Verify prompt contains expected elements
+    assert "hierarchical workflow supervisor" in prompt.lower()
+    assert "SupervisorAgent" in prompt
+    assert "LeafAgent" in prompt
+    assert "Test task" in prompt
+    assert "delegate" in prompt
+    assert "complete" in prompt
