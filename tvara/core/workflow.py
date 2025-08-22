@@ -341,7 +341,7 @@ Choose wisely based on the context and completed tasks.
         
         return {"action": "unknown", "raw_response": decision_text}
 
-    def _extract_json(self, text: str) -> dict | None:
+    def _extract_json(self, text: str) -> Optional[Dict[str, Any]]:
         """
         Extract JSON object from text response.
         
@@ -349,7 +349,7 @@ Choose wisely based on the context and completed tasks.
             text (str): Text containing JSON
             
         Returns:
-            dict | None: Extracted JSON or None if not found
+           Optional[Dict[str, Any]]: Extracted JSON or None if not found
         """
         try:
             text = text.strip()
