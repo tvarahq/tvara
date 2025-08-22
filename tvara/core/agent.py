@@ -322,7 +322,7 @@ Please provide a helpful and informative response to the user's question or requ
             pass
         return None
 
-    def _extract_json(self, text: str) -> dict | None:
+    def _extract_json(self, text: str) -> Optional[Dict[str, Any]]:
         """Extract JSON object from text response."""
         try:
             match = re.search(r"(\{.*\})", text, re.DOTALL)
