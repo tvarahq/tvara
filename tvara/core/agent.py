@@ -218,14 +218,34 @@ class Agent:
     def _handle_non_interactive_auth(self, toolkit: str):
         """Handle non-interactive authentication using environment tokens."""
         token = self.auth_token_manager.get_toolkit_token(toolkit)
-        if token:
-            print(f"{GREEN}Using environment token ✨{RESET}")
-            # Cache the successful authentication
-            if self.auth_cache:
-                self.auth_cache.cache_toolkit_auth(toolkit, self.user_id)
-                print(f"{CYAN}      💾 Auth cached for 10 minutes{RESET}")
-        else:
+        if not token:
             raise ValueError(f"No authentication token found for {toolkit} in non-interactive mode")
+        
+        try:
+            # Create auth config with the token
+            auth_config_id = self.auth_token_manager.create_auth_config(
+                self.composio_client, toolkit, token
+            )
+            
+            if not auth_config_id:
+                raise ValueError(f"Failed to create auth config for {toolkit}")
+            
+            # Create connected account
+            success = self.auth_token_manager.create_connected_account(
+                self.composio_client, self.user_id, auth_config_id, toolkit
+            )
+            
+            if success:
+                print(f"{GREEN}Connected via environment token ✨{RESET}")
+                # Cache the successful authentication
+                if self.auth_cache:
+                    self.auth_cache.cache_toolkit_auth(toolkit, self.user_id)
+                    print(f"{CYAN}      💾 Auth cached for 10 minutes{RESET}")
+            else:
+                raise ValueError(f"Failed to establish connection for {toolkit}")
+                
+        except Exception as e:
+            raise ValueError(f"Non-interactive authentication failed for {toolkit}: {e}")
 
     def _handle_interactive_auth(self, toolkit: str):
         """Handle interactive authentication with browser redirects."""
