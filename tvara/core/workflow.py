@@ -22,6 +22,7 @@ RESET = "\033[0m"
 class WorkflowMode(Enum):
     SEQUENTIAL = "sequential"
     SUPERVISED = "supervised"
+    HIERARCHICAL = "hierarchical"
     PARALLEL = "parallel"
     CONDITIONAL = "conditional"
 
@@ -46,7 +47,7 @@ class Workflow:
         self,
         name: str,
         agents: List[Agent],
-        mode: Literal["sequential", "supervised"] = "sequential",
+        mode: Literal["sequential", "supervised", "hierarchical"] = "sequential",
         manager_agent: Optional[Agent] = None,
         max_iterations: int = 10,
         enable_logging: bool = True
@@ -57,7 +58,7 @@ class Workflow:
         Args:
             name (str): Workflow identifier name
             agents (List[Agent]): List of worker agents
-            mode (Literal["sequential", "supervised"]): Execution mode
+            mode (Literal["sequential", "supervised", "hierarchical"]): Execution mode
             manager_agent (Optional[Agent]): Manager agent for supervised mode
             max_iterations (int): Maximum iterations for supervised mode
             enable_logging (bool): Enable detailed logging
@@ -65,14 +66,20 @@ class Workflow:
         Raises:
             ValueError: If configuration is invalid
         """
-        if not agents:
+        if not agents and mode != "hierarchical":
             raise ValueError("At least one agent must be provided.")
         
         if mode == "supervised" and manager_agent is None:
             raise ValueError("Manager agent is required for supervised mode.")
         
-        if mode == "supervised" and manager_agent in agents:
+        if mode == "hierarchical" and manager_agent is None:
+            raise ValueError("Manager agent is required for hierarchical mode.")
+        
+        if mode in ["supervised", "hierarchical"] and manager_agent in agents:
             raise ValueError("Manager agent should not be in the agents list.")
+        
+        if mode == "hierarchical" and manager_agent and not manager_agent.is_supervisor():
+            raise ValueError("Manager agent must have sub-agents for hierarchical mode.")
 
         self.name = name
         self.agents = agents
@@ -261,6 +268,132 @@ class Workflow:
                 error=str(e)
             )
 
+    def _run_hierarchical(self, input_data: str) -> WorkflowResult:
+        """
+        Execute agents in hierarchical mode with multi-level supervision.
+        
+        Args:
+            input_data (str): Initial input for the workflow
+            
+        Returns:
+            WorkflowResult: Result of hierarchical execution
+        """
+        self._log(f"{BOLD}{BLUE}🏗️ HIERARCHICAL EXECUTION STARTED{RESET}")
+        
+        # Validation for hierarchical mode
+        if not self.manager_agent:
+            raise ValueError("Manager agent is required for hierarchical mode.")
+        
+        if not self.manager_agent.is_supervisor():
+            raise ValueError("Manager agent must have sub-agents for hierarchical mode.")
+        
+        self._log(f"{YELLOW}   👑 Root Supervisor: {self.manager_agent.name}{RESET}")
+        self._log(f"{CYAN}   🔄 Max iterations: {self.max_iterations}{RESET}")
+        
+        agent_outputs = []
+        iteration = 0
+        current_context = {
+            "original_input": input_data,
+            "completed_tasks": [],
+            "current_supervisor": self.manager_agent,
+            "hierarchy_path": [self.manager_agent.name],
+            "current_status": "starting"
+        }
+        
+        try:
+            while iteration < self.max_iterations:
+                iteration += 1
+                self._log(f"\n{BOLD}{PURPLE}{'='*60}{RESET}")
+                self._log(f"{BOLD}{PURPLE}🔍 HIERARCHICAL ROUND {iteration}/{self.max_iterations}{RESET}")
+                self._log(f"{BOLD}{PURPLE}Current Level: {' -> '.join(current_context['hierarchy_path'])}{RESET}")
+                self._log(f"{BOLD}{PURPLE}{'='*60}{RESET}")
+                
+                supervisor_prompt = self._create_hierarchical_manager_prompt(current_context)
+                supervisor_decision = current_context["current_supervisor"].run(supervisor_prompt)
+                
+                decision = self._parse_manager_decision(supervisor_decision)
+                self._log(f"{CYAN}🤔 Supervisor Decision: {decision.get('action', 'unknown').upper()}{RESET}")
+                
+                if decision["action"] == "complete":
+                    self._log(f"{GREEN}🏁 Supervisor completed the workflow{RESET}")
+                    final_answer = decision.get("final_answer", supervisor_decision)
+                    self._print_workflow_result(final_answer, True)
+                    
+                    return WorkflowResult(
+                        success=True,
+                        final_output=final_answer,
+                        agent_outputs=agent_outputs
+                    )
+                
+                elif decision["action"] == "delegate":
+                    agent_name = decision.get("agent_name")
+                    task_input = decision.get("task_input", input_data)
+                    
+                    # Find the agent in current supervisor's sub-agents
+                    current_supervisor = current_context["current_supervisor"]
+                    target_agent = current_supervisor.find_sub_agent_by_name(agent_name)
+                    
+                    if target_agent:
+                        self._log(f"{CYAN}👉 Delegating to: {agent_name}{RESET}")
+                        
+                        if target_agent.is_supervisor():
+                            # If target is a supervisor, update context for next iteration
+                            self._log(f"{BLUE}📋 Target is supervisor with {len(target_agent.sub_agents)} sub-agents{RESET}")
+                            current_context["current_supervisor"] = target_agent
+                            current_context["hierarchy_path"].append(agent_name)
+                            current_context["current_status"] = f"delegated_to_supervisor_{agent_name}"
+                        else:
+                            # If target is a leaf agent, execute it
+                            agent_output = target_agent.run(task_input)
+                            
+                            agent_outputs.append({
+                                "agent_name": agent_name,
+                                "input": task_input,
+                                "output": agent_output,
+                                "iteration": iteration,
+                                "delegated_by": current_supervisor.name,
+                                "hierarchy_path": current_context["hierarchy_path"].copy()
+                            })
+                            
+                            current_context["completed_tasks"].append({
+                                "agent": agent_name,
+                                "input": task_input,
+                                "output": agent_output,
+                                "iteration": iteration,
+                                "supervisor": current_supervisor.name
+                            })
+                            current_context["current_status"] = f"completed_task_with_{agent_name}"
+                            
+                            self._log(f"{GREEN}✅ Task delegation completed{RESET}")
+                    else:
+                        self._log(f"{RED}❌ Agent '{agent_name}' not found in {current_supervisor.name}'s sub-agents{RESET}", "error")
+                        current_context["current_status"] = f"agent_{agent_name}_not_found"
+                
+                else:
+                    self._log(f"{YELLOW}⚠️  Unknown supervisor action: {decision.get('action')}{RESET}", "warning")
+                    current_context["current_status"] = "unknown_action"
+
+            error_msg = "Maximum iterations reached"
+            self._log(f"{RED}⏰ WORKFLOW TIMEOUT: {error_msg}{RESET}", "warning")
+            self._print_workflow_result("Workflow incomplete: maximum iterations reached", False)
+            
+            return WorkflowResult(
+                success=False,
+                final_output="Workflow incomplete: maximum iterations reached",
+                agent_outputs=agent_outputs,
+                error="Maximum iterations reached"
+            )
+            
+        except Exception as e:
+            error_msg = f"Hierarchical workflow failed: {str(e)}"
+            self._log(f"{RED}❌ WORKFLOW ERROR: {error_msg}{RESET}", "error")
+            return WorkflowResult(
+                success=False,
+                final_output="",
+                agent_outputs=agent_outputs,
+                error=str(e)
+            )
+
     def _print_workflow_result(self, final_output: str, success: bool):
         """
         Print beautifully formatted workflow result.
@@ -317,6 +450,57 @@ You must respond with a JSON object containing one of these actions:
 }}
 
 Choose wisely based on the context and completed tasks.
+"""
+
+    def _create_hierarchical_manager_prompt(self, context: Dict[str, Any]) -> str:
+        """
+        Create decision prompt for hierarchical supervisor agent.
+        
+        Args:
+            context (Dict[str, Any]): Current hierarchical workflow execution context
+            
+        Returns:
+            str: Formatted supervisor prompt
+        """
+        current_supervisor = context['current_supervisor']
+        available_agents = current_supervisor.get_all_sub_agent_names()
+        hierarchy_path = ' -> '.join(context['hierarchy_path'])
+        
+        return f"""
+You are a hierarchical workflow supervisor at level: {hierarchy_path}
+Your job is to coordinate your direct sub-agents and decide what should happen next.
+
+Original user input: {context['original_input']}
+Your available sub-agents: {', '.join(available_agents)}
+Current status: {context['current_status']}
+
+Completed tasks so far:
+{json.dumps(context['completed_tasks'], indent=2)}
+
+You must respond with a JSON object containing one of these actions:
+
+1. To delegate a task to one of your direct sub-agents:
+{{
+    "action": "delegate",
+    "agent_name": "agent_name_here",
+    "task_input": "specific input for the agent",
+    "reasoning": "why you chose this agent and task"
+}}
+
+2. To complete the workflow (only if the task is fully complete):
+{{
+    "action": "complete",
+    "final_answer": "the final response to the user",
+    "reasoning": "why the workflow is complete"
+}}
+
+IMPORTANT NOTES:
+- You can only delegate to your direct sub-agents: {', '.join(available_agents)}
+- If a sub-agent is also a supervisor, delegating to them will allow them to further delegate to their sub-agents
+- Choose the most appropriate agent based on their expertise and the task requirements
+- Only mark as complete when the original user request has been fully satisfied
+
+Choose wisely based on the hierarchical context and completed tasks.
 """
 
     def _parse_manager_decision(self, decision_text: str) -> Dict[str, Any]:
@@ -393,6 +577,8 @@ Choose wisely based on the context and completed tasks.
             return self._run_sequential(input_data)
         elif self.mode == WorkflowMode.SUPERVISED:
             return self._run_supervised(input_data)
+        elif self.mode == WorkflowMode.HIERARCHICAL:
+            return self._run_hierarchical(input_data)
         else:
             error_msg = f"Unsupported workflow mode: {self.mode.value}"
             self._log(f"{RED}❌ CONFIGURATION ERROR: {error_msg}{RESET}", "error")
