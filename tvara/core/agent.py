@@ -36,7 +36,8 @@ class Agent:
         max_iterations: int = 10,
         user_id: str = "default",
         cache_auth: bool = True,
-        cache_validity_minutes: int = 10
+        cache_validity_minutes: int = 10,
+        sub_agents: Optional[List['Agent']] = None
     ):
         """
         Initialize an AI Agent with optional tool integration and auth caching.
@@ -52,6 +53,7 @@ class Agent:
             user_id (str): User identifier for tool authorization
             cache_auth (bool): Enable authentication caching
             cache_validity_minutes (int): Cache validity in minutes
+            sub_agents (Optional[List['Agent']]): List of sub-agents for hierarchical workflows
         """
         if not model:
             raise ValueError("Model must be specified.")
@@ -63,6 +65,7 @@ class Agent:
         self.api_key = api_key
         self.max_iterations = max_iterations
         self.user_id = user_id
+        self.sub_agents = sub_agents or []
         
         self.logger = logging.getLogger(f"Agent-{name}")
         self.logger.handlers.clear()
@@ -93,6 +96,12 @@ class Agent:
 
         self.prompt = prompt or Prompt(template_name="agent_prompt_template")
         self.prompt.set_tools(self.tools)
+        
+        if self.sub_agents:
+            self._log(f"{CYAN}   👥 Sub-agents: {len(self.sub_agents)} supervised agents{RESET}")
+            for sub_agent in self.sub_agents:
+                self._log(f"{CYAN}      - {sub_agent.name}{RESET}")
+        
         self._log(f"{GREEN}✅ Agent '{name}' initialized successfully{RESET}\n")
 
     def _log(self, message: str, level: str = "info"):
@@ -342,3 +351,18 @@ Please provide a helpful and informative response to the user's question or requ
         if self.auth_cache:
             return self.auth_cache.get_cache_status()
         return {}
+
+    def is_supervisor(self) -> bool:
+        """Check if this agent is a supervisor (has sub-agents)."""
+        return len(self.sub_agents) > 0
+
+    def find_sub_agent_by_name(self, name: str) -> Optional['Agent']:
+        """Find a sub-agent by name."""
+        for agent in self.sub_agents:
+            if agent.name == name:
+                return agent
+        return None
+
+    def get_all_sub_agent_names(self) -> List[str]:
+        """Get names of all direct sub-agents."""
+        return [agent.name for agent in self.sub_agents]
