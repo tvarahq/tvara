@@ -1,5 +1,8 @@
+import json
 from .base import BaseModel
 from google import genai
+from google.genai import types as genai_types
+
 
 class GoogleGeminiModel(BaseModel):
     def __init__(self, model_name: str, api_key: str):
@@ -10,7 +13,7 @@ class GoogleGeminiModel(BaseModel):
     def get_response(self, input_data: str) -> str:
         """
         Gets a response from the Google Gemini model.
-        
+
         Args:
             input_data (str): The input data for the model.
 
@@ -25,4 +28,122 @@ class GoogleGeminiModel(BaseModel):
             return response.text if response and hasattr(response, "text") else "No response generated."
         except Exception as e:
             return f"Error: {str(e)}"
+
+    def get_response_with_tools(self, messages: list, tools: list) -> dict:
+        """
+        Call Gemini with native function calling.
+
+        Converts OpenAI-format messages and tools to Gemini format, then
+        normalises the response back to the shared dict schema.
+
+        Returns:
+            dict with keys:
+              text: str | None
+              tool_calls: list[{id, name, args}] | None
+              usage: dict | None
+        """
+        # --- Convert OpenAI tool schema → Gemini function declarations ---
+        function_declarations = []
+        for t in tools:
+            fn = t["function"]
+            params = fn.get("parameters", {"type": "object", "properties": {}})
+            function_declarations.append(
+                genai_types.FunctionDeclaration(
+                    name=fn["name"],
+                    description=fn.get("description", ""),
+                    parameters=params,
+                )
+            )
+        gemini_tools = [genai_types.Tool(function_declarations=function_declarations)]
+
+        # --- Convert OpenAI messages → Gemini contents ---
+        system_instruction = None
+        contents = []
+
+        for msg in messages:
+            role = msg["role"]
+            content = msg.get("content") or ""
+
+            if role == "system":
+                system_instruction = content
+                continue
+
+            if role == "user":
+                contents.append(genai_types.Content(role="user", parts=[genai_types.Part(text=content)]))
+
+            elif role == "assistant":
+                if msg.get("tool_calls"):
+                    # Assistant requested tool calls
+                    parts = []
+                    if content:
+                        parts.append(genai_types.Part(text=content))
+                    for tc in msg["tool_calls"]:
+                        args = tc["function"]["arguments"]
+                        parts.append(
+                            genai_types.Part(
+                                function_call=genai_types.FunctionCall(
+                                    name=tc["function"]["name"],
+                                    args=json.loads(args) if isinstance(args, str) else args,
+                                )
+                            )
+                        )
+                    contents.append(genai_types.Content(role="model", parts=parts))
+                else:
+                    contents.append(genai_types.Content(role="model", parts=[genai_types.Part(text=content)]))
+
+            elif role == "tool":
+                # Tool result — Gemini expects function_response as a user-role turn
+                contents.append(
+                    genai_types.Content(
+                        role="user",
+                        parts=[
+                            genai_types.Part(
+                                function_response=genai_types.FunctionResponse(
+                                    name=msg.get("name", "tool"),
+                                    response={"result": content},
+                                )
+                            )
+                        ],
+                    )
+                )
+
+        config_kwargs = {"tools": gemini_tools}
+        if system_instruction:
+            config_kwargs["system_instruction"] = system_instruction
+
+        response = self.client.models.generate_content(
+            model=self.model_name,
+            contents=contents,
+            config=genai_types.GenerateContentConfig(**config_kwargs),
+        )
+
+        usage = None
+        if hasattr(response, "usage_metadata") and response.usage_metadata:
+            usage = {
+                "input_tokens": getattr(response.usage_metadata, "prompt_token_count", None),
+                "output_tokens": getattr(response.usage_metadata, "candidates_token_count", None),
+            }
+
+        # Check for function calls in the response
+        candidate = response.candidates[0] if response.candidates else None
+        if candidate and candidate.content and candidate.content.parts:
+            tool_calls = []
+            text_parts = []
+            for part in candidate.content.parts:
+                if part.function_call:
+                    fc = part.function_call
+                    tool_calls.append({
+                        "id": f"gemini-{fc.name}-{len(tool_calls)}",
+                        "name": fc.name,
+                        "args": dict(fc.args) if fc.args else {},
+                    })
+                elif hasattr(part, "text") and part.text:
+                    text_parts.append(part.text)
+
+            if tool_calls:
+                return {"text": None, "tool_calls": tool_calls, "usage": usage}
+            return {"text": "".join(text_parts), "tool_calls": None, "usage": usage}
+
+        text = response.text if hasattr(response, "text") and response.text else ""
+        return {"text": text, "tool_calls": None, "usage": usage}
     

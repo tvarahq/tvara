@@ -59,25 +59,33 @@ openai_supported = [
     "o3-pro",
     "o4-mini",
     "gpt-oss-120b",
-    "gpt-oss-20b"
+    "gpt-oss-20b",
+    "gpt-5.2",
+    "gpt-5.1",
+    "gpt-5",
+    "gpt-5-mini",
+    "gpt-5-nano",
+    "gpt-4.1",
+    "gpt-4.1-mini",
+    "gpt-4o-mini",
 ]
 
 claude_supported = [
-    "claude-opus-4-1-20250805"
-    "claude-opus-4-1"
-    "claude-opus-4-20250514"
-    "claude-opus-4-0"
-    "claude-sonnet-4-20250514"
-    "claude-sonnet-4-0"
-    "claude-3-7-sonnet-20250219"
-    "claude-3-7-sonnet-latest"
-    "claude-3-5-haiku-20241022"
-    "claude-3-5-haiku-latest"
-    "claude-3-5-sonnet-20241022"
-    "claude-3-5-sonnet-latest"
-    "claude-3-5-sonnet-20240620"
-    "claude-3-opus-20240229"
-    "claude-3-opus-latest"
-    "claude-3-sonnet-20240229"
-    "claude-3-haiku-20240307"
+    "claude-opus-4-1-20250805",
+    "claude-opus-4-1",
+    "claude-opus-4-20250514",
+    "claude-opus-4-0",
+    "claude-sonnet-4-20250514",
+    "claude-sonnet-4-0",
+    "claude-3-7-sonnet-20250219",
+    "claude-3-7-sonnet-latest",
+    "claude-3-5-haiku-20241022",
+    "claude-3-5-haiku-latest",
+    "claude-3-5-sonnet-20241022",
+    "claude-3-5-sonnet-latest",
+    "claude-3-5-sonnet-20240620",
+    "claude-3-opus-20240229",
+    "claude-3-opus-latest",
+    "claude-3-sonnet-20240229",
+    "claude-3-haiku-20240307",
 ]
