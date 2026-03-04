@@ -1,4 +1,6 @@
 from abc import ABC, abstractmethod
+from typing import Awaitable, Callable
+
 
 class BaseModel(ABC):
     def __init__(self):
@@ -31,4 +33,32 @@ class BaseModel(ABC):
         """
         raise NotImplementedError(
             f"{self.__class__.__name__} does not support native function calling."
+        )
+
+    async def stream_response_with_tools(
+        self,
+        messages: list,
+        tools: list,
+        on_token: Callable[[str], Awaitable[None]],
+    ) -> dict:
+        """
+        Stream tokens via on_token callback, then return the same dict as
+        get_response_with_tools when the full response is assembled.
+
+        Args:
+            messages: Conversation history in OpenAI message format.
+            tools: Tool schemas in OpenAI function-calling format.
+            on_token: Async callback invoked for each streamed text token.
+
+        Returns:
+            dict with keys:
+              text: str | None
+              tool_calls: list[{id, name, args}] | None
+              usage: dict | None
+
+        Raises:
+            NotImplementedError: If the model does not support streaming.
+        """
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not support streaming."
         )

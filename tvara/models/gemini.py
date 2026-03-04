@@ -1,7 +1,11 @@
+import asyncio
 import json
-from .base import BaseModel
+from typing import Awaitable, Callable
+
 from google import genai
 from google.genai import types as genai_types
+
+from .base import BaseModel
 
 
 class GoogleGeminiModel(BaseModel):
@@ -41,6 +45,94 @@ class GoogleGeminiModel(BaseModel):
               text: str | None
               tool_calls: list[{id, name, args}] | None
               usage: dict | None
+        """
+        gemini_tools, system_instruction, contents = self._prepare_gemini_request(
+            messages, tools
+        )
+
+        config_kwargs = {}
+        if gemini_tools[0].function_declarations:
+            config_kwargs["tools"] = gemini_tools
+        if system_instruction:
+            config_kwargs["system_instruction"] = system_instruction
+
+        response = self.client.models.generate_content(
+            model=self.model_name,
+            contents=contents,
+            config=genai_types.GenerateContentConfig(**config_kwargs),
+        )
+        return self._parse_response(response)
+
+    async def stream_response_with_tools(
+        self,
+        messages: list,
+        tools: list,
+        on_token: Callable[[str], Awaitable[None]],
+    ) -> dict:
+        """
+        Stream text tokens via on_token, then return the assembled result dict.
+
+        The google-genai SDK exposes only a synchronous streaming iterator
+        (generate_content_stream). We collect chunks in a background thread via
+        asyncio.to_thread, then emit on_token calls from the event loop thread
+        for each text chunk. Function-call parts are collected from the final
+        chunk that carries a complete candidate.
+
+        Returns:
+            dict with keys:
+              text: str | None
+              tool_calls: list[{id, name, args}] | None
+              usage: dict | None
+        """
+        gemini_tools, system_instruction, contents = self._prepare_gemini_request(
+            messages, tools
+        )
+
+        config_kwargs = {}
+        if gemini_tools[0].function_declarations:
+            config_kwargs["tools"] = gemini_tools
+        if system_instruction:
+            config_kwargs["system_instruction"] = system_instruction
+
+        # Stream chunks from a background thread, emitting each text token
+        # immediately via on_token so the SSE stream isn't held up until the
+        # full response is collected.
+        loop = asyncio.get_running_loop()
+        text_parts: list[str] = []
+        final_chunk_holder: list = []
+
+        def _stream_chunks():
+            last_chunk = None
+            for chunk in self.client.models.generate_content_stream(
+                model=self.model_name,
+                contents=contents,
+                config=genai_types.GenerateContentConfig(**config_kwargs),
+            ):
+                last_chunk = chunk
+                if hasattr(chunk, "text") and chunk.text:
+                    token = chunk.text
+                    text_parts.append(token)
+                    asyncio.run_coroutine_threadsafe(on_token(token), loop).result()
+            if last_chunk is not None:
+                final_chunk_holder.append(last_chunk)
+
+        await asyncio.to_thread(_stream_chunks)
+
+        # The final chunk carries the fully assembled candidate with function calls.
+        if final_chunk_holder:
+            return self._parse_response(final_chunk_holder[0])
+
+        return {"text": "".join(text_parts) or None, "tool_calls": None, "usage": None}
+
+    # ------------------------------------------------------------------
+    # Private helpers
+    # ------------------------------------------------------------------
+
+    def _prepare_gemini_request(self, messages: list, tools: list) -> tuple:
+        """Convert OpenAI-format messages/tools to Gemini format.
+
+        Returns:
+            (gemini_tools, system_instruction, contents)
         """
         # --- Convert OpenAI tool schema → Gemini function declarations ---
         function_declarations = []
@@ -107,16 +199,10 @@ class GoogleGeminiModel(BaseModel):
                     )
                 )
 
-        config_kwargs = {"tools": gemini_tools}
-        if system_instruction:
-            config_kwargs["system_instruction"] = system_instruction
+        return gemini_tools, system_instruction, contents
 
-        response = self.client.models.generate_content(
-            model=self.model_name,
-            contents=contents,
-            config=genai_types.GenerateContentConfig(**config_kwargs),
-        )
-
+    def _parse_response(self, response) -> dict:
+        """Normalise a Gemini GenerateContentResponse into the shared dict schema."""
         usage = None
         if hasattr(response, "usage_metadata") and response.usage_metadata:
             usage = {
@@ -125,7 +211,7 @@ class GoogleGeminiModel(BaseModel):
             }
 
         # Check for function calls in the response
-        candidate = response.candidates[0] if response.candidates else None
+        candidate = response.candidates[0] if (hasattr(response, "candidates") and response.candidates) else None
         if candidate and candidate.content and candidate.content.parts:
             tool_calls = []
             text_parts = []
@@ -146,4 +232,3 @@ class GoogleGeminiModel(BaseModel):
 
         text = response.text if hasattr(response, "text") and response.text else ""
         return {"text": text, "tool_calls": None, "usage": usage}
-    

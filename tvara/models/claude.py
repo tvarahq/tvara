@@ -1,12 +1,18 @@
 import json
+from typing import Awaitable, Callable
+
+from anthropic import Anthropic, AsyncAnthropic
+
 from .base import BaseModel
-from anthropic import Anthropic
+
 
 class ClaudeModel(BaseModel):
     def __init__(self, model_name: str, api_key: str):
         super().__init__()
         self.model_name = model_name
         self.client = Anthropic(api_key=api_key)
+        # Async client reuses the same credentials for streaming support.
+        self.async_client = AsyncAnthropic(api_key=api_key)
 
     def get_response(self, input_data: str) -> str:
         """
@@ -42,6 +48,84 @@ class ClaudeModel(BaseModel):
               text: str | None
               tool_calls: list[{id, name, args}] | None
               usage: dict | None
+        """
+        anthropic_tools, system_content, anthropic_messages = (
+            self._prepare_anthropic_request(messages, tools)
+        )
+
+        kwargs = dict(
+            model=self.model_name,
+            max_tokens=4096,
+            messages=anthropic_messages,
+        )
+        if anthropic_tools:
+            kwargs["tools"] = anthropic_tools
+        if system_content:
+            kwargs["system"] = system_content
+
+        response = self.client.messages.create(**kwargs)
+        return self._parse_response(response)
+
+    async def stream_response_with_tools(
+        self,
+        messages: list,
+        tools: list,
+        on_token: Callable[[str], Awaitable[None]],
+    ) -> dict:
+        """
+        Stream text tokens via on_token, then return the assembled result dict.
+
+        Uses AsyncAnthropic's messages.stream() context manager. Text deltas are
+        forwarded to on_token as they arrive; tool_use blocks are collected from
+        the final assembled message (Anthropic does not stream tool arguments).
+
+        Returns:
+            dict with keys:
+              text: str | None
+              tool_calls: list[{id, name, args}] | None
+              usage: dict | None
+        """
+        anthropic_tools, system_content, anthropic_messages = (
+            self._prepare_anthropic_request(messages, tools)
+        )
+
+        kwargs = dict(
+            model=self.model_name,
+            max_tokens=4096,
+            messages=anthropic_messages,
+        )
+        if anthropic_tools:
+            kwargs["tools"] = anthropic_tools
+        if system_content:
+            kwargs["system"] = system_content
+
+        async with self.async_client.messages.stream(**kwargs) as stream:
+            async for event in stream:
+                # event types: https://docs.anthropic.com/en/api/messages-streaming
+                if (
+                    event.type == "content_block_delta"
+                    and hasattr(event, "delta")
+                    and event.delta.type == "text_delta"
+                ):
+                    await on_token(event.delta.text)
+
+            # get_final_message() blocks until the stream is fully consumed and
+            # returns the complete Message object — identical to a non-streaming call.
+            final_message = await stream.get_final_message()
+
+        return self._parse_response(final_message)
+
+    # ------------------------------------------------------------------
+    # Private helpers
+    # ------------------------------------------------------------------
+
+    def _prepare_anthropic_request(
+        self, messages: list, tools: list
+    ) -> tuple:
+        """Convert OpenAI-format messages/tools to Anthropic format.
+
+        Returns:
+            (anthropic_tools, system_content, anthropic_messages)
         """
         # --- Convert OpenAI tool schema → Anthropic tool schema ---
         anthropic_tools = []
@@ -100,17 +184,10 @@ class ClaudeModel(BaseModel):
             else:
                 anthropic_messages.append({"role": role, "content": msg.get("content") or ""})
 
-        kwargs = dict(
-            model=self.model_name,
-            max_tokens=4096,
-            tools=anthropic_tools,
-            messages=anthropic_messages,
-        )
-        if system_content:
-            kwargs["system"] = system_content
+        return anthropic_tools, system_content, anthropic_messages
 
-        response = self.client.messages.create(**kwargs)
-
+    def _parse_response(self, response) -> dict:
+        """Normalise an Anthropic Message object into the shared dict schema."""
         usage = None
         if hasattr(response, "usage"):
             usage = {

@@ -4,7 +4,7 @@ import asyncio
 import json
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Literal, Optional
+from typing import Any, Awaitable, Callable, Dict, List, Literal, Optional
 
 from .prompt import Prompt
 from tvara.models import ModelFactory
@@ -21,7 +21,7 @@ for _noisy in ("httpx", "composio", "urllib3", "openai", "anthropic", "google"):
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
-SYSTEM_PROMPT = (
+DEFAULT_SYSTEM_PROMPT = (
     "You are a helpful assistant with access to external tools. "
     "When the user asks you to perform an action or retrieve information, "
     "always use the available tools rather than saying you cannot do it."
@@ -48,6 +48,7 @@ class Agent:
         connected_accounts: Optional[Dict[str, str]] = None,
         custom_tools: Optional[List[Any]] = None,
         prompt: Optional[Prompt] = None,
+        system_prompt: Optional[str] = None,
         max_iterations: int = 10,
         user_id: str = "default",
         cache_auth: bool = True,
@@ -82,6 +83,7 @@ class Agent:
         self.api_key = api_key
         self.max_iterations = max_iterations
         self.user_id = user_id
+        self.system_prompt = system_prompt or DEFAULT_SYSTEM_PROMPT
 
         # verbose=True attaches a StreamHandler to the tvara logger so debug
         # output appears without the caller needing to configure logging.
@@ -323,9 +325,19 @@ class Agent:
         self,
         input_data: str,
         on_step: Optional[Callable[[str], None]] = None,
+        on_token: Optional[Callable[[str], Awaitable[None]]] = None,
     ) -> RunResult:
         """
         Process user input and return a structured RunResult.
+
+        Args:
+            input_data: The user's task or message.
+            on_step: Optional sync callback invoked on each agent step with a
+                     human-readable description (e.g. "Using tool: gmail_send").
+            on_token: Optional async callback invoked for each streamed text token.
+                      When provided, the model's streaming API is used instead of
+                      the blocking call. Only text tokens are streamed; tool-call
+                      arguments are not forwarded via this callback.
 
         This is an async coroutine. Use run_sync() for synchronous callers.
         """
@@ -335,23 +347,49 @@ class Agent:
             logger.debug("Basic mode — no tools, responding directly")
             if on_step:
                 on_step("Generating response...")
-            current_prompt = self._build_basic_prompt(input_data)
-            response = self._model_instance.get_response(current_prompt)
-            return RunResult(output=response, stop_reason="stop")
+            # Use get_response_with_tools with an empty tools list so the system
+            # prompt is honoured and streaming works. We pass tools=None sentinel
+            # via a plain messages call on the model.
+            # Since get_response_with_tools requires at least some tools on most
+            # providers, build a minimal messages list and call the model directly
+            # with system prompt baked in as the first message.
+            messages = [
+                {"role": "system", "content": self.system_prompt},
+                {"role": "user", "content": input_data},
+            ]
+            if on_token is not None:
+                result = await self._model_instance.stream_response_with_tools(
+                    messages, [], on_token
+                )
+            else:
+                result = await asyncio.to_thread(
+                    self._model_instance.get_response_with_tools, messages, []
+                )
+            return RunResult(
+                output=result.get("text") or "",
+                stop_reason="stop",
+                usage=result.get("usage"),
+            )
 
-        return await self._run_with_native_tools(input_data, on_step)
+        return await self._run_with_native_tools(input_data, on_step, on_token)
 
     def run_sync(
         self,
         input_data: str,
         on_step: Optional[Callable[[str], None]] = None,
+        on_token: Optional[Callable[[str], Awaitable[None]]] = None,
     ) -> RunResult:
         """
         Synchronous wrapper around run().
 
         Suitable for scripts, notebooks, and frameworks that are not async-first.
+
+        Args:
+            input_data: The user's task or message.
+            on_step: Optional sync callback invoked on each agent step.
+            on_token: Optional async callback invoked for each streamed text token.
         """
-        return asyncio.run(self.run(input_data, on_step))
+        return asyncio.run(self.run(input_data, on_step=on_step, on_token=on_token))
 
     # ------------------------------------------------------------------
     # Internal agentic loop
@@ -361,6 +399,7 @@ class Agent:
         self,
         input_data: str,
         on_step: Optional[Callable[[str], None]],
+        on_token: Optional[Callable[[str], Awaitable[None]]],
     ) -> RunResult:
         """Agentic loop using the model's native function-calling API."""
         openai_tools = self._tools_to_openai_format()
@@ -371,7 +410,7 @@ class Agent:
         )
 
         messages: List[Dict] = [
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": self.system_prompt},
             {"role": "user", "content": input_data},
         ]
         all_tool_calls: List[Dict] = []
@@ -379,9 +418,17 @@ class Agent:
         for iteration in range(self.max_iterations):
             logger.debug("Iteration %d/%d", iteration + 1, self.max_iterations)
 
-            result = await asyncio.to_thread(
-                self._model_instance.get_response_with_tools, messages, openai_tools
-            )
+            if on_token is not None:
+                # Streaming path: use the async streaming method directly (no thread wrapping
+                # needed since stream_response_with_tools is already async).
+                result = await self._model_instance.stream_response_with_tools(
+                    messages, openai_tools, on_token
+                )
+            else:
+                # Non-streaming path: wrap the sync blocking call in a thread.
+                result = await asyncio.to_thread(
+                    self._model_instance.get_response_with_tools, messages, openai_tools
+                )
 
             if not result.get("tool_calls"):
                 # Model gave a final text answer.
