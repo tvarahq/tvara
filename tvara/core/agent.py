@@ -371,6 +371,8 @@ class Agent:
                 usage=result.get("usage"),
             )
 
+        if on_step:
+            on_step("Generating response...")
         return await self._run_with_native_tools(input_data, on_step, on_token)
 
     def run_sync(
@@ -433,8 +435,6 @@ class Agent:
             if not result.get("tool_calls"):
                 # Model gave a final text answer.
                 logger.info("Agent '%s' produced final response", self.name)
-                if on_step:
-                    on_step("Generating response...")
                 return RunResult(
                     output=result.get("text") or "",
                     stop_reason="stop",

@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "tvara"
-version = "1.3.0"
-description = "Streaming capabilities added."
+version = "1.3.1"
+description = "Agent caching to skip Composio schema fetch on repeated calls."
 authors = ["Team Tvara <team@tvarahq.com>"]
 license = "MIT"
 readme = "README.md"

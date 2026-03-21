@@ -1,6 +1,34 @@
+import hashlib
+import json
+import threading
 from typing import Awaitable, Callable, Dict, Optional
 
 from tvara.core import Agent
+
+# ---------------------------------------------------------------------------
+# Process-level Agent cache
+# ---------------------------------------------------------------------------
+# Keyed by a fingerprint of (model, composio_api_key, sorted connected_accounts).
+# Avoids re-fetching Composio tool schemas on every message for the same user.
+# Thread-safe via a lock — the server runs the SDK in a thread executor.
+
+_agent_cache: Dict[str, Agent] = {}
+_agent_cache_lock = threading.Lock()
+
+
+def _cache_key(
+    model: str,
+    composio_api_key: str,
+    connected_accounts: Dict[str, str],
+) -> str:
+    """Stable cache key that changes whenever the user's connections change."""
+    payload = {
+        "model": model,
+        "composio_api_key": composio_api_key,
+        # Sort so dict ordering doesn't produce spurious misses.
+        "accounts": sorted(connected_accounts.items()),
+    }
+    return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
 
 
 def run_for_user(
@@ -38,14 +66,27 @@ def run_for_user(
     Returns:
         The agent's final response as a string.
     """
-    agent = Agent(
-        name="tvara-agent",
-        model=model,
-        api_key=api_key,
-        composio_api_key=composio_api_key,
-        connected_accounts=connected_accounts,
-        system_prompt=system_prompt,
-        max_iterations=max_iterations,
-    )
+    key = _cache_key(model, composio_api_key, connected_accounts)
+
+    with _agent_cache_lock:
+        agent = _agent_cache.get(key)
+
+    if agent is None:
+        agent = Agent(
+            name="tvara-agent",
+            model=model,
+            api_key=api_key,
+            composio_api_key=composio_api_key,
+            connected_accounts=connected_accounts,
+            system_prompt=system_prompt,
+            max_iterations=max_iterations,
+        )
+        with _agent_cache_lock:
+            _agent_cache[key] = agent
+    else:
+        # Update system_prompt in case it changed (e.g. user connected a new
+        # integration between messages — the prompt is rebuilt server-side).
+        agent.system_prompt = system_prompt or agent.system_prompt
+
     result = agent.run_sync(task, on_step=on_step, on_token=on_token)
     return result.output
