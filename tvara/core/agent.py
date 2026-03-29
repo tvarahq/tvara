@@ -83,7 +83,7 @@ class Agent:
         self.api_key = api_key
         self.max_iterations = max_iterations
         self.user_id = user_id
-        self.system_prompt = system_prompt or DEFAULT_SYSTEM_PROMPT
+        self.system_prompt = system_prompt or DEFAULT_SYSTEM_PROMPT  # may be overridden below by prompt.render()
 
         # verbose=True attaches a StreamHandler to the tvara logger so debug
         # output appears without the caller needing to configure logging.
@@ -127,8 +127,10 @@ class Agent:
         if not self.tools:
             logger.info("Agent '%s' running in basic mode (no external tools)", name)
 
-        self.prompt = prompt or Prompt(template_name="agent_prompt_template")
-        self.prompt.set_tools(self.tools)
+        if prompt is not None:
+            prompt.set_tools(self.tools)
+            self.system_prompt = prompt.render()
+
         logger.info("Agent '%s' initialized successfully", name)
 
     # ------------------------------------------------------------------

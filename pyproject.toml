@@ -1,16 +1,13 @@
 [tool.poetry]
 name = "tvara"
-version = "1.3.1"
-description = "Agent caching to skip Composio schema fetch on repeated calls."
+version = "1.3.2"
+description = "Code cleanup"
 authors = ["Team Tvara <team@tvarahq.com>"]
 license = "MIT"
 readme = "README.md"
 keywords = ["agents", "AI", "workflow", "tvara"]
 homepage = "https://tvarahq.com"
 repository = "https://github.com/tvarahq/tvara"
-
-[tool.poetry.scripts]
-tvara = "tvara.cli.main:cli"
 
 [tool.poetry.dependencies]
 python = ">=3.10,<4"

@@ -1,28 +1,6 @@
 from typing import Optional, List
 from tvara.utils.prompt_templates import template_registry
 from tvara.tools import BaseTool
-import json
-
-prerequisite = """
-### VERY IMPORTANT ###
-
-When using tools, you MUST use the exact parameter names and structure as specified in the tool's Parameters Schema.
-
-If a tool is available and relevant to the user's request, respond ONLY with this JSON:
-{
-  "tool_call": {
-    "tool_name": "<exact_tool_name>",
-    "tool_input": {
-      // Use the exact parameter names and types from the tool's parameters schema
-    }
-  }
-}
-
-Do NOT explain your actions. Do NOT include natural language.
-When using `code_tool`, always return actual executable Python code.
-
-Only if no tool is relevant should you answer in natural language.
-"""
 
 class Prompt:
     def __init__(
@@ -75,29 +53,4 @@ class Prompt:
         return template_func(tools=self.tools)
     
     def _render_raw_prompt(self) -> str:
-        """
-        Render raw prompt with enhanced tool information.
-        
-        Returns:
-            str: Raw prompt with tool details
-        """
-        if not self.tools:
-            return self.raw_prompt + "\n\nNo tools available."
-        
-        tools_info = []
-        for tool in self.tools:
-            params_schema = tool.get_parameters_schema() if hasattr(tool, 'get_parameters_schema') else {}
-            tool_info = f"""
-Tool: {tool.name}
-Description: {tool.description}
-Parameters Schema: {json.dumps(params_schema, indent=2) if params_schema else 'No specific parameters required'}
-"""
-            tools_info.append(tool_info)
-        
-        tools_section = f"""
-
-You have access to the following tools with their parameter schemas:
-{"".join(tools_info)}
-"""
-        
-        return self.raw_prompt + tools_section + "\n" + prerequisite
+        return self.raw_prompt

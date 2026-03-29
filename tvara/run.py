@@ -5,12 +5,6 @@ from typing import Awaitable, Callable, Dict, Optional
 
 from tvara.core import Agent
 
-# ---------------------------------------------------------------------------
-# Process-level Agent cache
-# ---------------------------------------------------------------------------
-# Keyed by a fingerprint of (model, composio_api_key, sorted connected_accounts).
-# Avoids re-fetching Composio tool schemas on every message for the same user.
-# Thread-safe via a lock — the server runs the SDK in a thread executor.
 
 _agent_cache: Dict[str, Agent] = {}
 _agent_cache_lock = threading.Lock()
@@ -25,7 +19,6 @@ def _cache_key(
     payload = {
         "model": model,
         "composio_api_key": composio_api_key,
-        # Sort so dict ordering doesn't produce spurious misses.
         "accounts": sorted(connected_accounts.items()),
     }
     return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
